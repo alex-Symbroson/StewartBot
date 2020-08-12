@@ -58,6 +58,11 @@
             <version>1.7.5</version>
         </dependency>
         <dependency>
+            <groupId>com.jayway.jsonpath</groupId>
+            <artifactId>json-path</artifactId>
+            <version>2.4.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.brunocvcunha.jiphy</groupId>
             <artifactId>jiphy</artifactId>
             <version>LATEST</version>

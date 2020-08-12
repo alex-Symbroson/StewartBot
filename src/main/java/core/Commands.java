@@ -1,11 +1,7 @@
 package core;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.entities.ChannelType;
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.Role;
-import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.requests.restaction.RoleAction;
+import net.dv8tion.jda.api.entities.*;
 import util.FSManager;
 import util.SECRETS;
 import wrapper.GuildWrapper;
@@ -16,15 +12,26 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Random;
 
+import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
+
+import org.json.JSONObject;
 
 import static core.Bot.AUTHOR;
 
 public class Commands
 {
+    static boolean isAdmin(UniEvent e)
+    {
+        return e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() || e.author.getIdLong() == SECRETS.OWNID ||
+                                   e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(Bot.getGuildData(e.guild.getId()).adminRole)));
+    }
+
     static boolean handleUniversal(UniEvent e, String cmd, String arg)
     {
         switch (cmd)
@@ -40,11 +47,9 @@ public class Commands
                 if (e.channel != null && e.channel.getType() == ChannelType.TEXT)
                     info.setFooter("Created by " + AUTHOR, e.member.getUser().getAvatarUrl());
 
-                e.channel.sendTyping().queue();
-                e.channel.sendMessage(info.build()).queue();
+                e.channel.sendMessage(info.build()).queue(Bot.addX);
                 info.clear();
-            }
-            break;
+            } break;
 
             case "help":
             {
@@ -52,17 +57,15 @@ public class Commands
                 if(help == null) break;
                 e.channel.sendMessage((isAdmin(e) ? help : help.replaceAll("\\*_ _\\*[^§]+?\\*_ _\\*", ""))
                     .replace("%n", Bot.name).replace("%p", Bot.prefix)
-                ).queue();
-            }
-            break;
+                ).queue(Bot.addX);
+            } break;
 
             case "roll":
             case "dice":
             {
                 int roll = new Random().nextInt(6) + 1;
                 e.channel.sendMessage(e.author.getAsMention() + "'s roll: " + roll).queue();
-            }
-            break;
+            } break;
 
             case "funfact":
             {
@@ -87,219 +90,317 @@ public class Commands
                 }
 
                 e.channel.sendMessage(result.toString().split("i>")[1].replace("</", "")).queue();
-            }
-            break;
+            } break;
 
-            case "poll":
-            {
-                String res = "";
-                final String[] arr = arg.split("\s*[\n/]\s*");
-                final String[] reacts = new String[arr.length - 1];
+            case "embed": {
 
-                for(int i = 0; i < Math.min(arr.length, 20); i++) {
-                    if(i == 0) res += "**" + arr[i] + "**\n";
-                    else {
-                        if(Character.UnicodeBlock.of(arr[i].charAt(0)) != Character.UnicodeBlock.BASIC_LATIN) reacts[i-1] = arr[i].substring(0, 2);
-                        else if(arr[i].matches("<:.*:\\d+>")) reacts[i-1] = arr[i].replaceAll("<:.*:(\\d+)>", "<$1");
-                        else if(i <= 10) arr[i] = (reacts[i-1] = " 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟".split(" ")[i]) + " " + arr[i];
-                        else if(i <= 20) arr[i] = (reacts[i-1] = " 🇦 🇧 🇨 🇩 🇪 🇫 🇬 🇭 🇮 🇯".split(" ")[i - 10]) + " " + arr[i];
-                        res += arr[i] + "\n";
-                    }
-                }
-
-                e.channel.sendMessage(res).queue(msg -> {
-                    for(String r : reacts)
-                        if(!r.startsWith("<")) msg.addReaction(r).queue();
-                        else msg.addReaction(e.guild.getEmoteById(r.substring(1))).queue();
-                });
-            }
-            break;
+            } break;
 
             default:
                 return false;
-                // e.channel.sendMessage(Bot.name + " doesn't know '" + cmd + "'!").queue();
+            // e.channel.sendMessage(Bot.name + " doesn't know '" + cmd + "'!").queue();
         }
         return true;
     }
 
-    static boolean isAdmin(UniEvent e) {
-        return e.guild == null ? false : e.author.getIdLong() == e.guild.getOwnerIdLong() || e.author.getIdLong() == SECRETS.OWNID ||
-               e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(Bot.getGuildData(e.guild.getId()).adminRole));
-    }
-
-    private static Object[] tryGetRole(UniEvent e, String name) {
+    private static String tRes;
+    private static Role tryGetRole(UniEvent e, String name) {
         Role r = null;
-        String res = "";
-        
+        tRes = null;
+
         // @ referenced
         if(name.matches("<@&\\d+>")) r = e.guild.getRoleById(name.substring(3, name.length() - 1));
-        // name referenced
-        else if(name.matches("[\\w -]+")) {
+            // name referenced
+        else if(name.matches("[\\w -]+"))
+        {
             List<Role> roles = e.guild.getRolesByName(name, true);
-            
+
             // create role if not exists
-            if(roles.size() == 0) {
-                RoleAction a;
+            if(roles.size() == 0)
+            {
                 e.guild.createRole().setName(name).setColor(0xff0000).complete();
-                res = "Created role '" + name + "'.";
+                tRes = "Created role '" + name + "'.";
                 roles = e.guild.getRolesByName(name, false);
             }
 
             if(roles.size() > 0) r = roles.get(0);
-            else res = "Coulnd't find nor create role.";
+            else tRes = "Coulnd't find nor create role.";
         }
-        else {
-            if(name.isEmpty()) res = "No role specified.";
-            else res = "Invalid format.";
+        else
+        {
+            if(name.isEmpty()) tRes = "No role specified.";
+            else tRes = "Invalid format.";
         }
 
-        return new Object[]{r, res};
+        return r;
     }
 
-    private static Object[] tryGetMember(UniEvent e, String name) {
+    private static Member tryGetMember(UniEvent e, String name) {
         Member m = null;
-        String res = "";
-        
+        tRes = null;
+
         // @ referenced
-        if(name.matches("<@!\\d+>")) m = e.guild.getMemberById(name.substring(3, name.length() - 1));
+        if(name.matches("<@\\d+>")) m = e.guild.getMemberById(name.substring(2, name.length() - 1));
         // name referenced
-        else if(name.matches("[\\w -]+")) {
+        else if(name.matches("[\\w -]+"))
+        {
             List<Member> members = e.guild.getMembersByName(name, true);
 
             if(members.size() > 0) m = members.get(0);
-            else res = "Coulnd't find member.";
-        }
+            else tRes = "Coulnd't find member.";
+        } else tRes = "Invalid format.";
 
-        return new Object[]{m, res};
+        return m;
     }
 
     static void handleGuild(UniEvent e, String cmd, String arg)
     {
         String res = "";
-        final Boolean admin = isAdmin(e);
+        final boolean admin = isAdmin(e);
         final String guildId = e.guild.getId();
-        
+        boolean addX = false, addR = false, addT = false;
+
         switch (cmd)
         {
             case "get":
             {
                 if (e.author.getIdLong() != SECRETS.OWNID) return;
 
-                GuildWrapper guild = Bot.getGuildData(guildId);
-                assert guild != null;
+                e.author.openPrivateChannel().queue(c -> {
+                    String msg;
 
-                if (arg.length() == 0) res = guild.guild.toString();
-                else
-                    e.author.openPrivateChannel().complete().sendMessage(
-                        JsonPath.read(guild.guild.toString(),
-                            arg.replaceAll("^<@!([0-9]+)>", "users[\"$1\"]")).toString()
-                    ).queue();
+                    try
+                    {
+                        GuildWrapper guild = Bot.getGuildData(guildId);
+                        assert guild != null;
+
+                        if(arg.length() == 0) msg = guild.guild.toString();
+                        else
+                        {
+                            Object o = JsonPath.read(guild.guild.toString(),
+                                arg.replaceAll("^<@!([0-9]+)>", "users[\"$1\"]"));
+                            if(o instanceof LinkedHashMap) msg = new JSONObject((HashMap)o).toString();
+                            else msg = o.toString();
+                        }
+
+                    } catch(Exception err) { msg = err.toString(); }
+
+                    for(int i = 0; i < msg.length(); i += 2000)
+                        e.channel.sendMessage(msg.substring(i, Math.min(i + 2000, msg.length()))).queue(Bot.addX);
+                });
             } break;
 
-            case "setAdminRole": 
+            case "set":
+            case "put":
+            case "add":
+            case "del":
+            {
+                if (e.author.getIdLong() != SECRETS.OWNID) return;
+
+                e.author.openPrivateChannel().queue(c ->
+                    Bot.withGuildData(guildId, true, guild ->
+                    {
+                        String msg;
+
+                        try
+                        {
+                            String[] args = arg.replaceAll("^<@!([0-9]+)>", "users[\"$1\"]").replaceFirst("\\s", "\0").split("\0");
+                            DocumentContext ctx = JsonPath.parse(guild.guild.toString());
+
+                            switch(cmd)
+                            {
+                                case "put": String[] kv = args[1].replaceFirst(" ", "\0").split("\0");
+                                    ctx.put(args[0], kv[0], kv[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(kv[1]).json()); break;
+                                case "set": ctx.set(args[0], args[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(args[1]).json()); break;
+                                case "add": ctx.add(args[0], args[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(args[1]).json()); break;
+                                case "del": ctx.delete(args[0]); break;
+                            }
+
+                            Object o = ctx.read(args[0]);
+                            if(o instanceof LinkedHashMap) msg = new JSONObject((HashMap)o).toString();
+                            else msg = o.toString();
+
+                            guild.loadJSON(new JSONObject(ctx.jsonString()));
+
+                        } catch(Exception err) { msg = err.toString(); }
+
+                        for(int i = 0; i < msg.length(); i += 2000)
+                            e.channel.sendMessage(msg.substring(i, Math.min(i + 2000, msg.length()))).queue(Bot.addX);
+                    }));
+
+            } break;
+
+            case "setadminrole":
             {
                 if(!admin) break;
-                final Object[] r = tryGetRole(e, arg);
-                res = (String)r[1];
 
-                if(r[0] == null) break;
-                Bot.withGuildData(guildId, true, g -> g.adminRole = ((net.dv8tion.jda.api.entities.Guild)r[0]).getIdLong());
+                Role r = tryGetRole(e, arg);
+                if(tRes != null) res = tRes;
+                if(r == null) break;
+
+                addX = true;
+                addR = res.contains("Created role '");
+
+                Bot.withGuildData(guildId, true, g -> g.adminRole = ((Role) r).getIdLong());
             } break;
 
             case "warn":
             {
                 if(!admin) break;
                 String[] args = arg.split(" ", 2);
-                Object m[] = tryGetMember(e, args[0]);
-                res = (String)m[1];
 
-                if(m[0] == null) break;
-                Bot.withGuildData(guildId, true, g ->
+                Member m = tryGetMember(e, args[0]);
+                if(m == null)
                 {
-                    UserWrapper u = g.getUser(((Member)m[0]).getId());
-                    ((Member)m[0]).getUser().openPrivateChannel().complete().sendMessage(
-                        "You were warned by " + e.author.getAsTag() + " on " + e.guild.getName() + "." +
-                        (args.length == 1 ? "" : " Reason: " + args[1])).queue();
+                    if(tRes != null) res = tRes;
+                }
+                else Bot.withGuildData(guildId, true, g ->
+                {
+                    // System.out.println(m.getUser().getId() + "/" + m.getId());
+                    UserWrapper u = g.getUser(m.getUser().getId());
+                    m.getUser().openPrivateChannel().queue(c ->
+                    {
+                        c.sendMessage(
+                            "You have been warned by " + e.author.getAsTag() + " on " + e.guild.getName() + "." +
+                            (args.length == 1 ? "" : " Reason: " + args[1])).queue();
+
+                        e.channel.sendMessage(
+                            m.getAsMention() + " has been warned by " + e.author.getAsTag() + "." +
+                            (args.length == 1 ? "" : " Reason: " + args[1])).queue();
+                    });
 
                     if(++u.warnings >= g.warnStatic) handleGuild(e, "static", args[0]);
                     u.flush();
                 });
             } break;
 
-            case "static": 
+            case "static":
             {
                 if(!admin) break;
                 String[] args = arg.split(" ", 2);
-                Object m[] = tryGetMember(e, args[0]);
-                res = (String)m[1];
 
-                if(m[0] == null) break;
-                Bot.withGuildData(guildId, true, g ->
+                Member m = tryGetMember(e, args[0]);
+                if(m == null) res = tRes;
+                else Bot.withGuildData(guildId, true, g ->
                 {
-                    UserWrapper u = g.getUser(((Member)m[0]).getId());
-                    ((Member)m[0]).getUser().openPrivateChannel().complete().sendMessage(
+                    UserWrapper u = g.getUser(m.getId());
+                    m.getUser().openPrivateChannel().queue(c -> c.sendMessage(
                         "You cannot gain XP on " + e.guild.getName() + " any more." +
-                        (args.length == 1 ? "" : " Reason: " + args[1])).queue();
+                        (args.length == 1 ? "" : " Reason: " + args[1])).queue());
 
                     u.bstatic = true;
                     u.flush();
                 });
             } break;
 
-            case "unstatic": 
+            case "unstatic":
             {
                 if(!admin) break;
                 String[] args = arg.split(" ", 2);
-                Object m[] = tryGetMember(e, args[0]);
-                res = (String)m[1];
 
-                if(m[0] == null) break;
-                Bot.withGuildData(guildId, true, g ->
+                Member m = tryGetMember(e, args[0]);
+                if(m == null) res = tRes;
+                else Bot.withGuildData(guildId, true, g ->
                 {
-                    UserWrapper u = g.getUser(((Member)m[0]).getId());
-                    ((Member)m[0]).getUser().openPrivateChannel().complete().sendMessage(
-                        "You can gain XP on " + e.guild.getName() + " again.").queue();
-                        
+                    UserWrapper u = g.getUser(m.getId());
+                    m.getUser().openPrivateChannel().queue(c -> c.sendMessage(
+                        "You can gain XP on " + e.guild.getName() + " again.").queue());
+
                     u.bstatic = false;
                     u.flush();
                 });
             } break;
 
-            case "rolepoll": {
+            case "makecategory":
+            {
                 if(!admin) break;
+                String[] args = arg.split(" ");
+                e.guild.createCategory(args[0]).queue(c -> {
+                    c.createTextChannel(args[0].toLowerCase().replace(" ", "-")).queue();
+                    int n = args.length == 2 ? Integer.parseInt(args[1]) : 1;
+                    for(int i = 1; i <= n; i++) c.createVoiceChannel("voice-" + i).queue();
+                });
+            } break;
 
-                final String[] arr = arg.split("\s*[\n/]\s*");
-                final String[] reacts = new String[arr.length - 1];
+            case "deletecategory":
+            {
+                if(!admin || arg.isEmpty()) break;
+                List<Category> cats = e.guild.getCategoriesByName(arg, false);
+                if(cats.size() > 0) res = "delete category '" + cats.get(0).getName() + "'?";
+                addX = addT = true;
+            } break;
 
-                for(int i = 0; i < Math.min(arr.length, 20); i++) {
-                    if(i == 0) res += "**" + arr[i] + "**\n";
-                    else {
-                        if(Character.UnicodeBlock.of(arr[i].charAt(0)) != Character.UnicodeBlock.BASIC_LATIN) reacts[i-1] = arr[i].substring(0, 2);
-                        else if(arr[i].matches("<:.*:\\d+>")) reacts[i-1] = arr[i].substring(0, arr[i].indexOf(">"));
+            case "poll":
+            case "rolepoll":
+            {
+                if(cmd.equals("rolepoll") && !admin) break;
+
+                StringBuilder poll = new StringBuilder();
+                final String[] arr = arg.split("\\s*[\n/]\\s*");
+                final String[] reacts = new String[Math.min(arr.length, 20)];
+                reacts[reacts.length - 1] = "❌";
+
+                for(int i = 0; i < reacts.length; i++)
+                {
+                    if(i == 0) poll.append(cmd.equals("rolepoll") ? "Role " : "").append("Poll: **").append(arr[i]).append("**\n");
+                    else
+                    {
+                        // Custom Unicode character
+                        if(Character.UnicodeBlock.of(arr[i].charAt(0)) != Character.UnicodeBlock.BASIC_LATIN)
+                            reacts[i-1] = arr[i].startsWith("❌") ? "✖" : arr[i].startsWith("✅") ? "☑" : arr[i].substring(0, 2);
+                            // Server Custom Emote:
+                        else if(arr[i].matches("<:.*:\\d+>"))
+                            reacts[i-1] = arr[i].substring(0, arr[i].indexOf(">"));
+                            // Server Custom Emote
+                        else if(arr[i].matches(":.*:"))
+                            reacts[i-1] = arr[i].substring(0, arr[i].indexOf(">"));
+                            // Default 1-10
                         else if(i <= 10) arr[i] = (reacts[i-1] = " 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟".split(" ")[i]) + " " + arr[i];
+                            // Default 11-20
                         else if(i <= 20) arr[i] = (reacts[i-1] = " 🇦 🇧 🇨 🇩 🇪 🇫 🇬 🇭 🇮 🇯".split(" ")[i - 10]) + " " + arr[i];
-                        res += arr[i] + "\n";
+
+                        if(cmd.equals("rolepoll"))
+                        {
+                            // Role
+                            String role = arr[i].substring(reacts[i-1].length()).trim();
+                            if(!role.matches("<@&\\d+>.*")) {
+                                Role r = tryGetRole(e, role.substring(0, role.indexOf(" ")));
+                                if(tRes != null) res += tRes + "\n";
+                                else arr[i] = arr[i].replace(role.substring(0, role.indexOf(" ")), r.getAsMention());
+                            }
+                        }
+
+                        poll.append(arr[i]).append("\n");
                     }
                 }
 
-                e.channel.sendMessage(res).queue(msg -> { 
+                e.channel.sendMessage(poll.toString()).queue(msg ->
+                {
+                    Bot.withGuildData(guildId, true, g -> g.polls.add(msg.getIdLong()));
+
                     for(String r : reacts)
                         if(!r.startsWith("<")) msg.addReaction(r).queue();
-                        else msg.addReaction(e.guild.getEmoteById(r));
+                        else msg.addReaction(e.guild.getEmoteById(r)).queue();
                 });
-                return;
+
+                addR = res.contains("Created role '");
+                addX = true;
             }
+            break;
         }
 
-        if(!res.isEmpty()) 
-            e.channel.sendMessage(res).queue();
-    }
-
-
-    static void handlePrivate(UniEvent e, String cmd, String arg)
-    {
-        switch (cmd)
+        if(res != null && !res.isEmpty())
         {
+            boolean fAddX = addX, fAddR = addR, fAddT = addT;
+            e.channel.sendMessage(res).queue(m -> {
+                if(fAddX) m.addReaction("❌").queue();
+
+                if(fAddR || fAddT) {
+                    if(fAddR) m.addReaction("↪").queue();
+                    if(fAddT) m.addReaction("✅").queue();
+                    Bot.withGuildData(guildId, true, g -> g.polls.add(m.getIdLong()));
+                }
+            });
         }
     }
 }

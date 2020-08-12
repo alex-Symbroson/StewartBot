@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Message;
 import wrapper.GuildWrapper;
 
 import org.json.JSONObject;
@@ -14,18 +15,27 @@ import javax.security.auth.login.LoginException;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Consumer;
 
 import static util.FSManager.*;
 
 public class Bot
 {
+    public static final boolean dev = false;
+
+    public static final Integer version = 22;
+    public static final Map<Integer, String> versions = new TreeMap<>((a, b) -> b.compareTo(a));
+
     public static final String dataDir = "data/%s/";
     public static final String AUTHOR = "Symbroson";
+
     public static final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyyMMdd");
-    private static final SimpleDateFormat logFormat = new SimpleDateFormat("'" + dataDir + "/Logs/'yyyyMMdd'.log'");
+    private static final SimpleDateFormat logFormat = new SimpleDateFormat("'Logs/'yyyyMMdd'.log'");
 
     public static JDA jda;
-    public static String prefix = "#";
+    public static String prefix = dev ? "#" : "/";
     public static String name = "Stewart";
     public static String desc = "Keeps track of your activity on the server.";
 
@@ -36,6 +46,10 @@ public class Bot
     // Main method
     public static void main(String[] args) throws LoginException
     {
+        versions.put(22, "sbf22|");
+        versions.put(21, "sbfv21");
+        versions.put(20, "sbfv2");
+        versions.put(10, "sbf");
         Log("started");
         
         //jda = JDABuilder.createDefault(util.SECRETS.TOKEN).build();
@@ -50,6 +64,8 @@ public class Bot
 
     private static long tStart = 0, tStep = 0, tDiff = 0;
 
+	public static Consumer<? super Message> addX = m -> m.addReaction("❌").queue();
+
     public static void tic()
     {
         tStart = tStep = System.nanoTime();
@@ -63,16 +79,18 @@ public class Bot
         tStep = t;
     }
 
+    private static File getLogFile(String folder)
+    {
+        return getDataFile(folder, logFormat.format(new Date()));
+    }
+
     private static void checkLogDate() throws FileNotFoundException
     {
         Date curDate = new Date();
         if (!dayFormat.format(logDate).equals(dayFormat.format(curDate)))
         {
             logDate = curDate;
-            File f = new File(String.format(logFormat.format(new Date()), "Server"));
-            if (!f.getParentFile().exists()) f.getParentFile().mkdirs();
-            logFile = new FileOutputStream(f, true);
-            //Zipper.setFile(serverLogFormat.format(curDate));
+            logFile = new FileOutputStream(getLogFile("Server"), true);
         }
     }
 
@@ -82,81 +100,83 @@ public class Bot
         {
             checkLogDate();
             System.out.println(log);
-
-            //Zipper.addFile(logFormat.format(new Date()), log);
             logFile.write((log + "\n").getBytes());
         }
-        catch (IOException e)
-        {
-            e.printStackTrace(System.err);
-        }
+        catch (IOException e) { e.printStackTrace(); }
     }
 
     public static void Log(String folder, String log)
     {
-        System.out.println(log);
-
-        //Zipper.setFile(String.format(userLogFormat.format(new Date()), folder), "passwd");
-        //Zipper.addFile(logFormat.format(new Date()), log);
-
-        /*try
+        if(Bot.dev) System.out.println(log);
+        else try
         {
-            File f = getDataFile(folder);
-            new FileOutputStream(f, true).write((log + "\n").getBytes());
+            FileOutputStream fos = new FileOutputStream(getLogFile(folder), true);
+            fos.write((log + "\n").getBytes());
+            fos.close();
         }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }*/
+        catch (IOException e) { e.printStackTrace(); }
     }
 
-    public static GuildWrapper getGuildData(String guildId) {
+    public static GuildWrapper getGuildData(String guildId)
+    {
 	    File f = getDataFile(guildId, "guild.sbf");
 	    int key = guildId.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host();
 	    JSONObject guild = loadSBF(f, key);
 	    
-	    if(guild == null) {
+        if(guild == null)
+        {
 	        Log("Loading fallback guildBase.sbf");
             File g = getDataFile("Server", "guildBase.sbf");
 	        int l = guildId.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host();
 	        guild = loadSBF(g, l);
 	        
-	        if(guild == null) {
+            if(guild == null)
+            {
 	            Log("Loading fallback guildBase.json");
 	            guild = loadJSON(getDataFile("Server", "guildBase.json"));
-	            
-	            if(guild == null) {
-	                Log("Critical error. GuildData couldn't be loaded nor restored.");
-	                return null;
-	            }
-	        }
-	    }
-	
+                if(guild != null && !guild.has("version")) guild.put("version", 0);
+            }
+        }
+        
+        if(guild == null)
+        {
+            Log("Critical error. GuildData couldn't be loaded nor restored.");
+            return null;
+        }
+        else if(!guild.has("version")) guild.put("version", 0);
+
 	    return new GuildWrapper(guild, guildId);
 	}
 
-	public static void withGuildData(String guildId, boolean save, Lambda cb) {
+    public static void withGuildData(String guildId, boolean save, Lambda cb)
+    {
 	    File f = getDataFile(guildId, "guild.sbf");
 	    int key = guildId.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host();
 	    JSONObject guild = loadSBF(f, key);
 	    
-	    if(guild == null && save) {
+        if(guild == null && save)
+        {
 	        Log("Loading fallback guildBase.sbf");
             File g = getDataFile("Server", "guildBase.sbf");
 	        int l = guildId.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host();
-	        guild = loadSBF(g, l);
+            guild = loadSBF(g, l);
+        
 	        
-	        if(guild == null) {
-	            Log("Loading fallback guildBase.json");
-	            guild = loadJSON(getDataFile("Server", "guildBase.json"));
-	            saveSBF(g, guild, l);
-                
-	            if(guild == null) {
-	                Log("Critical error. GuildData couldn't be loaded nor restored.");
-	                return;
-	            }
-	        }
-	    }
+            if(guild == null)
+            {
+                Log("Loading fallback guildBase.json");
+                guild = loadJSON(getDataFile("Server", "guildBase.json"));
+                if(guild != null && !guild.has("version")) guild.put("version", 0);
+                saveSBF(g, new GuildWrapper(guild, guildId).guild, l);
+            }
+        }
+
+        if(guild == null)
+        {
+            Log("Critical error. GuildData couldn't be loaded nor restored.");
+            return;
+        }
+        else if(!guild.has("version")) guild.put("version", 0);
     
         GuildWrapper g = new GuildWrapper(guild, guildId);
         cb.exec(guild == null ? null : g);

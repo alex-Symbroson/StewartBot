@@ -24,6 +24,12 @@ hs_err_pid*
 
 # intelliJ folder
 .idea
+.vscode
+.settings
+.project
+.classpath
 
 # build folder
 target
+out/
+data/

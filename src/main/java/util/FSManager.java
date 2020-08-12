@@ -8,6 +8,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Map.Entry;
 
 import core.Bot;
 import org.json.JSONObject;
@@ -62,8 +63,8 @@ public class FSManager {
 	    {
 	        Bot.Log(f.getPath() + " could not be loaded");
 	        e.printStackTrace();
-	        return null;
 	    }
+		return null;
 	}
 
 	public static JSONObject loadSBF(File f, int key) {
@@ -72,12 +73,18 @@ public class FSManager {
 		try
 	    {
 	    	byte[] arr = Files.readAllBytes(f.toPath());
-	    	String sb = new String(Arrays.copyOfRange(arr, 0,10));
-	    	int version = 0;
+	    	String sb = new String(Arrays.copyOfRange(arr, 0, 10));
 
-	    	if(sb.startsWith("sbfv2")) { version = 20; arr = Arrays.copyOfRange(arr, 5, arr.length); }
-	    	else if(sb.startsWith("sbf")) { version = 10; arr = Base64.getDecoder().decode(Arrays.copyOfRange(arr, 3, arr.length)); }
-	    	else throw new Exception("Invalid file version. Starts with " + sb.replaceAll("[^!-z]+", ""));
+			int version = 0;
+			for(Entry<Integer, String> v : Bot.versions.entrySet()) 
+				if(sb.startsWith(v.getValue())) {
+					version = v.getKey();
+					arr = Arrays.copyOfRange(arr, v.getValue().getBytes().length, arr.length);
+					break;
+				}
+
+	    	if(version == 10) arr = Base64.getDecoder().decode(arr);
+	    	else if(version == 0) throw new Exception("Invalid file version. Starts with " + sb.replaceAll("[^!-z]+", ""));
 
 	    	o = new JSONObject(AES.decrypt(arr, Integer.toString(key)));
 	    	o.put("version", version);
@@ -96,7 +103,7 @@ public class FSManager {
 	    {
 	    	data.remove("version");
 	        FileOutputStream fos = new FileOutputStream(f);
-	        fos.write("sbfv2".getBytes());
+	        fos.write(Bot.versions.get(Bot.version).getBytes());
 			fos.write(AES.encrypt(data.toString(), Integer.toString(key)));
 	        fos.close();
 	    }

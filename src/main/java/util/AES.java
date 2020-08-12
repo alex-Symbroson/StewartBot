@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.Base64;
 
 public class AES
 {
@@ -32,45 +31,29 @@ public class AES
         return null;
     }
 
-    public static byte[] encrypt(String strToEncrypt, String key)
+    public static byte[] encrypt(String strToEncrypt, String key) throws Exception
     {
         setKey(key);
         return encrypt(strToEncrypt);
     }
 
-    public static byte[] encrypt(String strToEncrypt)
+    public static byte[] encrypt(String strToEncrypt) throws Exception
     {
-        try
-        {
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-            return cipher.doFinal(strToEncrypt.getBytes(StandardCharsets.UTF_8));
-        }
-        catch (Exception e)
-        {
-            System.out.println("Error while encrypting: " + e.toString());
-        }
-        return null;
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        return cipher.doFinal(strToEncrypt.getBytes(StandardCharsets.UTF_8));
     }
 
-    public static String decrypt(byte[] strToDecrypt, String key)
+    public static String decrypt(byte[] strToDecrypt, String key) throws Exception
     {
         setKey(key);
         return decrypt(strToDecrypt);
     }
 
-    public static String decrypt(byte[] strToDecrypt)
+    public static String decrypt(byte[] strToDecrypt) throws Exception
     {
-        try
-        {
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING");
-            cipher.init(Cipher.DECRYPT_MODE, secretKey);
-            return new String(cipher.doFinal(strToDecrypt));
-        }
-        catch (Exception e)
-        {
-            System.out.println("Error while decrypting: " + e.toString());
-        }
-        return null;
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING");
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        return new String(cipher.doFinal(strToDecrypt));
     }
 }
