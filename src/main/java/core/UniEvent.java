@@ -11,6 +11,7 @@ public class UniEvent
     public final MessageChannel channel;
     public final Message msg;
     public final ServType servType;
+    public final Guild guild;
 
     public enum ServType { PRIVATE, GUILD };
 
@@ -18,6 +19,7 @@ public class UniEvent
         servType = ServType.PRIVATE;
         author = e.getAuthor();
         msg = e.getMessage();
+        guild = null;
         member = null;
         channel = e.getChannel();
     }
@@ -26,6 +28,7 @@ public class UniEvent
         servType = ServType.GUILD;
         author = e.getAuthor();
         msg = e.getMessage();
+        guild = e.getGuild();
         member = e.getMember();
         channel = e.getChannel();
     }
