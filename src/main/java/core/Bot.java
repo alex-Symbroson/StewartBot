@@ -2,7 +2,10 @@ package core;
 
 import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.Role;
+import util.SECRETS;
 import wrapper.GuildWrapper;
 
 import org.json.JSONObject;
@@ -12,6 +15,7 @@ import javax.security.auth.login.LoginException;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
@@ -40,6 +44,7 @@ public class Bot
 
     private static Date logDate = new Date(0);
     private static FileOutputStream logFile;
+    static String tRes;
 
 
     // Main method
@@ -178,8 +183,63 @@ public class Bot
         else if(!guild.has("version")) guild.put("version", 0);
     
         GuildWrapper g = new GuildWrapper(guild, guildId);
-        cb.exec(guild == null ? null : g);
+        cb.exec(g);
 	    if(save) saveSBF(f, g.flush().guild, key);
+    }
+
+    static boolean isAdmin(UniEvent e)
+    {
+        return e.author.getIdLong() == SECRETS.OWNID || (e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() ||
+               e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(getGuildData(e.guild.getId()).adminRole))));
+    }
+
+    static Role tryGetRole(UniEvent e, String name) {
+        Role r = null;
+        tRes = null;
+
+        // @ referenced
+        if(name.matches("<@&\\d+>")) r = e.guild.getRoleById(name.substring(3, name.length() - 1));
+            // name referenced
+        else if(name.matches("[\\w -]+"))
+        {
+            List<Role> roles = e.guild.getRolesByName(name, true);
+
+            // create role if not exists
+            if(roles.size() == 0)
+            {
+                e.guild.createRole().setName(name).setColor(0xff0000).complete();
+                tRes = "Created role '" + name + "'.";
+                roles = e.guild.getRolesByName(name, false);
+            }
+
+            if(roles.size() > 0) r = roles.get(0);
+            else tRes = "Coulnd't find nor create role.";
+        }
+        else
+        {
+            if(name.isEmpty()) tRes = "No role specified.";
+            else tRes = "Invalid format.";
+        }
+
+        return r;
+    }
+
+    static Member tryGetMember(UniEvent e, String name) {
+        Member m = null;
+        tRes = null;
+
+        // @ referenced
+        if(name.matches("<@!?\\d+>")) m = e.guild.getMemberById(name.replaceAll("^<@!?|>$", ""));
+            // name referenced
+        else if(name.matches("@?[\\w -]+"))
+        {
+            List<Member> members = e.guild.getMembersByName(name.replaceFirst("^@", ""), true);
+
+            if(members.size() > 0) m = members.get(0);
+            else tRes = "Coulnd't find member.";
+        } else tRes = "Invalid format.";
+
+        return m;
     }
 
     /* Helper functions */
@@ -202,4 +262,5 @@ public class Bot
     public static String getUrl(String url) {
         return url != null && EmbedBuilder.URL_PATTERN.matcher(url).matches() ? url : null;
     }
+
 }

@@ -13,7 +13,7 @@ import java.util.*;
 import core.UniEvent.EventType;
 import org.jetbrains.annotations.NotNull;
 
-import static core.Commands.isAdmin;
+import static core.Bot.isAdmin;
 
 public class EventHandler extends ListenerAdapter
 {

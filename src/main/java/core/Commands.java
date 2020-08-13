@@ -26,12 +26,6 @@ import static core.Bot.*;
 
 public class Commands
 {
-    static boolean isAdmin(UniEvent e)
-    {
-        return e.author.getIdLong() == SECRETS.OWNID || (e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() ||
-               e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(Bot.getGuildData(e.guild.getId()).adminRole))));
-    }
-
     static boolean handleUniversal(UniEvent e, String cmd, String arg)
     {
         switch (cmd)
@@ -99,56 +93,6 @@ public class Commands
         return true;
     }
 
-    private static String tRes;
-    private static Role tryGetRole(UniEvent e, String name) {
-        Role r = null;
-        tRes = null;
-
-        // @ referenced
-        if(name.matches("<@&\\d+>")) r = e.guild.getRoleById(name.substring(3, name.length() - 1));
-            // name referenced
-        else if(name.matches("[\\w -]+"))
-        {
-            List<Role> roles = e.guild.getRolesByName(name, true);
-
-            // create role if not exists
-            if(roles.size() == 0)
-            {
-                e.guild.createRole().setName(name).setColor(0xff0000).complete();
-                tRes = "Created role '" + name + "'.";
-                roles = e.guild.getRolesByName(name, false);
-            }
-
-            if(roles.size() > 0) r = roles.get(0);
-            else tRes = "Coulnd't find nor create role.";
-        }
-        else
-        {
-            if(name.isEmpty()) tRes = "No role specified.";
-            else tRes = "Invalid format.";
-        }
-
-        return r;
-    }
-
-    private static Member tryGetMember(UniEvent e, String name) {
-        Member m = null;
-        tRes = null;
-
-        // @ referenced
-        if(name.matches("<@!?\\d+>")) m = e.guild.getMemberById(name.replaceAll("^<@!?|>$", ""));
-        // name referenced
-        else if(name.matches("@?[\\w -]+"))
-        {
-            List<Member> members = e.guild.getMembersByName(name.replaceFirst("^@", ""), true);
-
-            if(members.size() > 0) m = members.get(0);
-            else tRes = "Coulnd't find member.";
-        } else tRes = "Invalid format.";
-
-        return m;
-    }
-
     static void handleGuild(UniEvent e, String cmd, String arg)
     {
         String res = "";
@@ -188,8 +132,7 @@ public class Commands
             case "set":
             case "put":
             case "add":
-            case "del":
-            {
+            case "del": {
                 if (e.author.getIdLong() != SECRETS.OWNID) return;
 
                 e.author.openPrivateChannel().queue(c ->
@@ -390,7 +333,7 @@ public class Commands
                         case "f": case "fi": case "field":
                             em.addField(get(v, 1), get(v, 2), v.length > 3 && v[3].matches("t|true|1"));
                             break;
-                        case "color":
+                        case "color": case "c":
                             try { em.setColor((Color)Color.class.getDeclaredField(v[1].toLowerCase()).get(null)); }
                             catch (Exception ex) { em.setColor(Integer.parseInt(arg)); }
                             break;
