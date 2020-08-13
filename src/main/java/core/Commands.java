@@ -117,7 +117,7 @@ public class Commands
                         else
                         {
                             Object o = JsonPath.read(guild.guild.toString(),
-                                arg.replaceAll("^<@!([0-9]+)>", "users[\"$1\"]"));
+                                arg.replaceAll("^<@!?([0-9]+)>(\\s*(\\.))?", "$3users[\"$1\"]").replaceFirst("\\s", "\0"));
                             if(o instanceof LinkedHashMap) msg = new JSONObject((HashMap)o).toString();
                             else msg = o.toString();
                         }
@@ -404,6 +404,7 @@ public class Commands
                 em.clear();
             } break;
         }
+        Bot.tRes = null;
 
         if(res != null && !res.isEmpty())
         {

@@ -2,9 +2,13 @@ package core;
 
 import java.util.Date;
 
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.exceptions.HierarchyException;
 import wrapper.UserWrapper;
 
 import static core.Bot.Log;
+import static core.Bot.tryGetRole;
 
 public class Messages
 {
@@ -49,17 +53,36 @@ public class Messages
 
             // update level
             ep = user.textEp + user.voiceEp + guild.levelEp / 2;
-            for(int i = user.level; i < ep / guild.levelEp; i++) {
+            Bot.tRes = null;
+            for(int i = user.level + 1; i <= ep / guild.levelEp; i++) {
                 user.level = i;
-                // TODO: update user level nickname?
+
+                Member m = e.guild.getMember(e.author);
+                if(m != null) {
+                    try
+                    {
+                        if(Bot.checkPerm(e, Permission.NICKNAME_MANAGE)) break;
+                        m.modifyNickname(m.getEffectiveName().replaceAll("(Lv. \\d)?$", "Lv. " + user.level)).queue();
+                    } catch (HierarchyException ex) {
+                        Bot.Log("Hierarchy exception for " + m.getEffectiveName());
+                    }
+                }
                 Log(gid, "Lv: " + e.author.getAsMention() + " reached " + user.level);
 
                 // update status role
                 if(guild.roles.containsKey(i)) {
-                    // TODO: update user role
+                    try
+                    {
+                        if(Bot.checkPerm(e, Permission.MANAGE_ROLES)) break;
+                        e.guild.addRoleToMember(e.author.getId(), tryGetRole(e, guild.roles.get(i))).queue();
+                    } catch (HierarchyException ex) {
+                        Bot.Log("Hierarchy exception for " + e.author.getName());
+                    }
                     Log(gid, "Lv: " + e.author.getAsMention() + " is now " + guild.roles.get(i));
                 }
             }
+            if(Bot.tRes != null) e.channel.sendMessage(Bot.tRes).queue();
+            Bot.tRes = null;
 
             user.flush();
         });

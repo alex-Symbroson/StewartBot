@@ -1,10 +1,7 @@
 package core;
 
 import net.dv8tion.jda.api.*;
-import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.*;
 import util.SECRETS;
 import wrapper.GuildWrapper;
 
@@ -164,8 +161,7 @@ public class Bot
             File g = getDataFile("Server", "guildBase.sbf");
 	        int l = guildId.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host();
             guild = loadSBF(g, l);
-        
-	        
+
             if(guild == null)
             {
                 Log("Loading fallback guildBase.json");
@@ -247,6 +243,7 @@ public class Bot
     public static Matcher match(String s, String regex) {
         return Pattern.compile(regex).matcher(s);
     }
+
     public static Object get(Object[] arr, int index, Object dflt) {
         if(arr.length <= index) return dflt;
         return arr[index];
@@ -259,8 +256,30 @@ public class Bot
         if(arr.length <= index) return null;
         return arr[index];
     }
+
     public static String getUrl(String url) {
         return url != null && EmbedBuilder.URL_PATTERN.matcher(url).matches() ? url : null;
     }
 
+    public static boolean checkPerm(Member m, Permission p) {
+        boolean b = !m.hasPermission(p);
+        if(b) tRes = "Missing Permission: " + p.getName();
+        return b;
+    }
+    public static boolean checkPerm(UniEvent e, User u, Permission p) {
+        return checkPerm(e.guild.getMember(u), p);
+    }
+    public static boolean checkPerm(UniEvent e, Permission p) {
+        return checkPerm(e, Bot.jda.getSelfUser(), p);
+    }
+
+    static void delMsg(UniEvent e)
+    {
+        e.msg.delete().onErrorMap(ex -> null).queue();
+        withGuildData(e.guild.getId(), true, g ->
+        {
+            g.polls.remove(e.msg.getIdLong());
+            g.flush();
+        });
+    }
 }

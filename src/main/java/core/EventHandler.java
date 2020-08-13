@@ -1,5 +1,6 @@
 package core;
 
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Category;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
@@ -132,21 +133,6 @@ public class EventHandler extends ListenerAdapter
         HandleReaction(ue);
     }
 
-    private static boolean delMsg(UniEvent e)
-    {
-        try
-        {
-            e.msg.delete().queue();
-            Bot.withGuildData(e.guild.getId(), true, g ->
-            {
-                g.polls.remove(e.msg.getIdLong());
-                g.flush();
-            });
-            return true;
-        }
-        catch (Exception __) { return false; }
-    }
-
     private static void HandleReaction(UniEvent e)
     {
         if(e.author.isBot()) return;
@@ -166,6 +152,7 @@ public class EventHandler extends ListenerAdapter
             }
 
         if (!e.msg.getAuthor().isBot() || !isAdmin(e)) return;
+        Bot.tRes = null;
         if (e.evType == EventType.REACTADD)
         {
             switch (e.rEmote.getName())
@@ -173,31 +160,34 @@ public class EventHandler extends ListenerAdapter
                 case "❌":
                     if (msg.split("\n", 2)[0].matches("^(Role )?Poll:.*"))
                     {
+                        if(Bot.checkPerm(e, Permission.MESSAGE_ADD_REACTION)) break;
                         e.msg.addReaction("✅").queue();
                         e.msg.editMessage("Delete " + e.msg.getContentRaw().replaceFirst(":", "?")).queue();
-                    } else delMsg(e);
+                    } else Bot.delMsg(e);
                     break;
 
                 case "↪":
+                    Bot.delMsg(e);
                     for (String l : msg.split("\n"))
                         if (l.matches("Created role '.*'."))
                         {
+                            if(Bot.checkPerm(e, Permission.MANAGE_ROLES)) break;
                             List<Role> roles = e.guild.getRolesByName(l.substring(14, l.length() - 2), false);
                             if (!roles.isEmpty()) roles.get(0).delete().queue();
                         }
-                    delMsg(e);
                     break;
 
                 case "✅":
                     if (msg.matches("delete category '.*'\\?"))
                     {
+                        Bot.delMsg(e);
+                        if(Bot.checkPerm(e, Permission.MANAGE_CHANNEL)) break;
                         List<Category> cats = e.guild.getCategoriesByName(msg.substring(17, msg.length() - 2), false);
                         if (cats.isEmpty()) break;
                         cats.get(0).getChannels().forEach(d -> d.delete().queue());
                         cats.get(0).delete().queue();
-                        delMsg(e);
                     } else if (msg.split("\n", 2)[0].matches("^Delete (Role )?Poll\\?.*"))
-                        delMsg(e);
+                        Bot.delMsg(e);
                     break;
             }
         }
@@ -209,5 +199,8 @@ public class EventHandler extends ListenerAdapter
                 e.msg.editMessage(msg.replaceFirst("^Delete ((Role )?Poll)\\?", "$1:")).queue();
             }
         }
+
+        if(Bot.tRes != null) e.channel.sendMessage(Bot.tRes).queue();
+        Bot.tRes = null;
     }
 }
