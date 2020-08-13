@@ -11,7 +11,7 @@ public class Messages
     static void handleGuild(UniEvent e)
     {
         Bot.withGuildData(e.guild.getId(), true, (guild) -> {
-            final String gid = e.guild.getId(), utag = e.author.getAsTag();
+            final String gid = e.guild.getId();
         
             // check if channel is set afk
             if(guild.afkChannel.contains(e.channel.getIdLong()))
@@ -21,19 +21,19 @@ public class Messages
             UserWrapper user = guild.getUser(e.author.getId());
             
             if(user == null) {
-                Log(gid, "Ld: Couldnt load <@!" + utag + ">");
+                Log(gid, "Ld: Couldnt load " + e.author.getAsMention());
                 return;
             }
 
             if(user.bstatic) {
-                Log(gid, "Ep: <@!" + utag + "> is static");
+                Log(gid, "Ep: " + e.author.getAsMention() + " is static");
                 return;
             }
 
             // check if text timeout reached
             long now = new Date().getTime();
             if(now - user.lTxtTime < 1000 * guild.textTimeout) {
-                Log(gid, "Ep: <@!" + utag + "> spammed");
+                Log(gid, "Ep: " + e.author.getAsMention() + " spammed");
                 return;
             }
 
@@ -45,19 +45,19 @@ public class Messages
             int ep = (int)Math.ceil(guild.maxTextEp * Math.min(1.0, msg.length() / (float)guild.maxTextLength));
             user.textEp += ep;
             user.lTxtTime = now;
-            Log(gid, "Ep: " + utag + " + " + ep);
+            Log(gid, "Ep: " + e.author.getAsMention() + " + " + ep);
 
             // update level
             ep = user.textEp + user.voiceEp + guild.levelEp / 2;
             for(int i = user.level; i < ep / guild.levelEp; i++) {
                 user.level = i;
                 // TODO: update user level nickname?
-                Log(gid, "Lv: " + utag + " reached " + user.level);
+                Log(gid, "Lv: " + e.author.getAsMention() + " reached " + user.level);
 
                 // update status role
                 if(guild.roles.containsKey(i)) {
                     // TODO: update user role
-                    Log(gid, "Lv: " + utag + " is now " + guild.roles.get(i));
+                    Log(gid, "Lv: " + e.author.getAsMention() + " is now " + guild.roles.get(i));
                 }
             }
 

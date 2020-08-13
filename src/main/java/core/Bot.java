@@ -1,9 +1,6 @@
 package core;
 
-import net.dv8tion.jda.api.AccountType;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.OnlineStatus;
+import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Message;
 import wrapper.GuildWrapper;
@@ -18,12 +15,14 @@ import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static util.FSManager.*;
 
 public class Bot
 {
-    public static final boolean dev = false;
+    public static final boolean dev = !false;
 
     public static final Integer version = 22;
     public static final Map<Integer, String> versions = new TreeMap<>((a, b) -> b.compareTo(a));
@@ -181,5 +180,26 @@ public class Bot
         GuildWrapper g = new GuildWrapper(guild, guildId);
         cb.exec(guild == null ? null : g);
 	    if(save) saveSBF(f, g.flush().guild, key);
+    }
+
+    /* Helper functions */
+
+    public static Matcher match(String s, String regex) {
+        return Pattern.compile(regex).matcher(s);
+    }
+    public static Object get(Object[] arr, int index, Object dflt) {
+        if(arr.length <= index) return dflt;
+        return arr[index];
+    }
+    public static String get(String[] arr, int index, String dflt) {
+        if(arr.length <= index) return dflt;
+        return arr[index];
+    }
+    public static String get(String[] arr, int index) {
+        if(arr.length <= index) return null;
+        return arr[index];
+    }
+    public static String getUrl(String url) {
+        return url != null && EmbedBuilder.URL_PATTERN.matcher(url).matches() ? url : null;
     }
 }

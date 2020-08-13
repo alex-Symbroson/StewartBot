@@ -7,29 +7,29 @@ import util.SECRETS;
 import wrapper.GuildWrapper;
 import wrapper.UserWrapper;
 
+import java.awt.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.time.OffsetDateTime;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
 
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 
 import org.json.JSONObject;
 
-import static core.Bot.AUTHOR;
+import static core.Bot.*;
 
 public class Commands
 {
     static boolean isAdmin(UniEvent e)
     {
-        return e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() || e.author.getIdLong() == SECRETS.OWNID ||
-                                   e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(Bot.getGuildData(e.guild.getId()).adminRole)));
+        return e.author.getIdLong() == SECRETS.OWNID || (e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() ||
+               e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(Bot.getGuildData(e.guild.getId()).adminRole))));
     }
 
     static boolean handleUniversal(UniEvent e, String cmd, String arg)
@@ -92,10 +92,6 @@ public class Commands
                 e.channel.sendMessage(result.toString().split("i>")[1].replace("</", "")).queue();
             } break;
 
-            case "embed": {
-
-            } break;
-
             default:
                 return false;
             // e.channel.sendMessage(Bot.name + " doesn't know '" + cmd + "'!").queue();
@@ -140,11 +136,11 @@ public class Commands
         tRes = null;
 
         // @ referenced
-        if(name.matches("<@\\d+>")) m = e.guild.getMemberById(name.substring(2, name.length() - 1));
+        if(name.matches("<@!?\\d+>")) m = e.guild.getMemberById(name.replaceAll("^<@!?|>$", ""));
         // name referenced
-        else if(name.matches("[\\w -]+"))
+        else if(name.matches("@?[\\w -]+"))
         {
-            List<Member> members = e.guild.getMembersByName(name, true);
+            List<Member> members = e.guild.getMembersByName(name.replaceFirst("^@", ""), true);
 
             if(members.size() > 0) m = members.get(0);
             else tRes = "Coulnd't find member.";
@@ -162,8 +158,7 @@ public class Commands
 
         switch (cmd)
         {
-            case "get":
-            {
+            case "get": {
                 if (e.author.getIdLong() != SECRETS.OWNID) return;
 
                 e.author.openPrivateChannel().queue(c -> {
@@ -204,7 +199,7 @@ public class Commands
 
                         try
                         {
-                            String[] args = arg.replaceAll("^<@!([0-9]+)>", "users[\"$1\"]").replaceFirst("\\s", "\0").split("\0");
+                            String[] args = arg.replaceAll("^<@!?([0-9]+)>(\\s*(\\.))?", "$3users[\"$1\"]").replaceFirst("\\s", "\0").split("\0");
                             DocumentContext ctx = JsonPath.parse(guild.guild.toString());
 
                             switch(cmd)
@@ -230,8 +225,7 @@ public class Commands
 
             } break;
 
-            case "setadminrole":
-            {
+            case "setadminrole": {
                 if(!admin) break;
 
                 Role r = tryGetRole(e, arg);
@@ -244,8 +238,7 @@ public class Commands
                 Bot.withGuildData(guildId, true, g -> g.adminRole = ((Role) r).getIdLong());
             } break;
 
-            case "warn":
-            {
+            case "warn": {
                 if(!admin) break;
                 String[] args = arg.split(" ", 2);
 
@@ -274,8 +267,7 @@ public class Commands
                 });
             } break;
 
-            case "static":
-            {
+            case "static": {
                 if(!admin) break;
                 String[] args = arg.split(" ", 2);
 
@@ -293,8 +285,7 @@ public class Commands
                 });
             } break;
 
-            case "unstatic":
-            {
+            case "unstatic": {
                 if(!admin) break;
                 String[] args = arg.split(" ", 2);
 
@@ -311,8 +302,7 @@ public class Commands
                 });
             } break;
 
-            case "makecategory":
-            {
+            case "makecategory": {
                 if(!admin) break;
                 String[] args = arg.split(" ");
                 e.guild.createCategory(args[0]).queue(c -> {
@@ -322,8 +312,7 @@ public class Commands
                 });
             } break;
 
-            case "deletecategory":
-            {
+            case "deletecategory": {
                 if(!admin || arg.isEmpty()) break;
                 List<Category> cats = e.guild.getCategoriesByName(arg, false);
                 if(cats.size() > 0) res = "delete category '" + cats.get(0).getName() + "'?";
@@ -331,8 +320,7 @@ public class Commands
             } break;
 
             case "poll":
-            case "rolepoll":
-            {
+            case "rolepoll": {
                 if(cmd.equals("rolepoll") && !admin) break;
 
                 StringBuilder poll = new StringBuilder();
@@ -385,8 +373,93 @@ public class Commands
 
                 addR = res.contains("Created role '");
                 addX = true;
-            }
-            break;
+            } break;
+
+            case "embed": {
+                if(!admin) break;
+                EmbedBuilder em = new EmbedBuilder();
+                String[] args = arg.replaceAll("(^|\\n|;)(\\w+)( +((\\S+|\"[^\"]*\"| +)*))?", "$2 $3\0").split("\0");
+
+                for(String a : args) {
+                    String[] v = a.replaceAll("(\"[^\"]*\"|\\S+)\\s+", "$1\0").split("\0");
+
+                    switch(v[0].toLowerCase()) {
+                        case "bf": case "blank": case "blankField":
+                            em.addBlankField(v.length > 1 && v[1].matches("t|true|1"));
+                            break;
+                        case "f": case "fi": case "field":
+                            em.addField(get(v, 1), get(v, 2), v.length > 3 && v[3].matches("t|true|1"));
+                            break;
+                        case "color":
+                            try { em.setColor((Color)Color.class.getDeclaredField(v[1].toLowerCase()).get(null)); }
+                            catch (Exception ex) { em.setColor(Integer.parseInt(arg)); }
+                            break;
+                        case "a": case "author":
+                        {
+                            Member m = tryGetMember(e, get(v, 1, ""));
+                            if (m == null) em.setAuthor(get(v, 1), get(v, 2), get(v, 3));
+                            else em.setAuthor(m.getEffectiveName(), getUrl(get(v, 2)), m.getUser().getEffectiveAvatarUrl());
+                        } break;
+                        case "t": case "title":
+                            em.setTitle(get(v, 1), getUrl(get(v, 2)));
+                            break;
+                        case "d": case "desc": case "description":
+                            em.setDescription(get(v, 1));
+                            break;
+                        case "fo": case "footer":
+                            em.setFooter(get(v, 1), getUrl(get(v,2)));
+                            break;
+                        case "i": case "img": case "image":
+                            em.setImage(getUrl(get(v, 1)));
+                            break;
+                        case "th": case "thumbnail":
+                            em.setThumbnail(getUrl(get(v, 1)));
+                            break;
+                        case "tm": case "ts": case "timestamp":
+                            em.setTimestamp(OffsetDateTime.now());
+                            break;
+                    }
+                }
+
+                e.channel.sendMessage(em.build()).queue(Bot.addX);
+                em.clear();
+            } break;
+
+            case "status": {
+                GuildWrapper g = Bot.getGuildData(e.guild.getId());
+                if(g == null) {
+                    res = "Guild " + e.guild.getName() + " not found.";
+                    break;
+                }
+
+                EmbedBuilder em = new EmbedBuilder();
+                Member m = tryGetMember(e, arg);
+                if(m == null) m = e.guild.getMember(e.author);
+
+                UserWrapper u = g.getUser(e.author.getId());
+                if(u == null) {
+                    res = "User " + (m == null ? arg : m.getAsMention()) + " not found.";
+                    break;
+                }
+
+                if(m == null) em.setAuthor(e.author.getName(), null, e.author.getEffectiveAvatarUrl());
+                else em.setAuthor(m.getEffectiveName(), null, m.getUser().getEffectiveAvatarUrl());
+
+                em.setTitle("Level " + u.level);
+
+                int d = u.level == 0 ? 2 : 1, ep = d * (u.textEp + u.voiceEp) % g.levelEp;
+                char[] xp = new char[20];
+                for(int i = 0; i < 20; i++) xp[i] = i * g.levelEp < 20 * ep ? '█' : '▏';
+                xp[20 * ep / g.levelEp] = "▏▎▍▌▋▊▉█".charAt(8 * ep / g.levelEp);
+                em.addField("Xp:  " + (ep / d) + " / " + (g.levelEp / d),
+                    "```┏━━━━━━━━━━━━━━━━━━━━┓\n" +
+                    "▕" + new String(xp) + "▏\n" +
+                    "┗━━━━━━━━━━━━━━━━━━━━┛```",
+                    false);
+
+                e.channel.sendMessage(em.build()).queue(Bot.addX);
+                em.clear();
+            } break;
         }
 
         if(res != null && !res.isEmpty())
