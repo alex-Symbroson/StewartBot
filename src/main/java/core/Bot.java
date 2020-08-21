@@ -110,6 +110,7 @@ public class Bot
             e.printStackTrace();
         }
         jda.getPresence().setActivity(Activity.playing(prefix + "help || version " + (""+version).replaceAll("(?!^|$)", ".")));
+        jda.getSelfUser().getManager().setAvatar(Icon.from(new File("res/stewart.png"))).queue();
         jda.getPresence().setStatus(OnlineStatus.ONLINE);
         jda.setAutoReconnect(true);
         jda.addEventListener(new EventHandler());

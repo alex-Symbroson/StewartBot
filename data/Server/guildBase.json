@@ -17,5 +17,6 @@
 	"levelEp": 200,
 	"adminRole": 0,
 	"version": 23,
+	"polls": [],
 	"roles": { }
 }
