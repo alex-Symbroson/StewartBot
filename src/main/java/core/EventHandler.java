@@ -15,10 +15,10 @@ import core.UniEvent.EventType;
 import org.jetbrains.annotations.NotNull;
 
 import static core.Bot.isAdmin;
+import static core.Bot.timeFormat;
 
 public class EventHandler extends ListenerAdapter
 {
-
     @Override
     public void onPrivateMessageReceived(PrivateMessageReceivedEvent event)
     {
@@ -29,14 +29,15 @@ public class EventHandler extends ListenerAdapter
 
         List<String> attach = new ArrayList<>();
         ue.msg.getAttachments().forEach(a -> attach.add(a.getUrl()));
+        String cd = ue.msg.getContentDisplay();
 
         Bot.Log(event.getAuthor().getId(),
-            "\033[0;2m" + new Date().getTime() + " " +
+            "\033[0;2m" + timeFormat.format(new Date()) + " " +
             "\033[1;30mPrivate\033[2;90m::" +
             "\033[0;2m" + ue.author.getAsTag() +
             "\033[2;90;3;2m(" + ue.author.getId() + ")" +
             "\033[0;37m" + (attach.size() == 0 ? "" : Arrays.toString(attach.toArray())) + ": " +
-            "\033[2;90;0;37m" + ue.msg.getContentDisplay()
+            "\033[2;90;0;37m" + (cd.matches("^\\w") ? cd : "Message(" + cd.length() + ")")
         );
 
         handleEvent(ue);
@@ -52,19 +53,24 @@ public class EventHandler extends ListenerAdapter
 
         List<String> attach = new ArrayList<>();
         ue.msg.getAttachments().forEach(a -> attach.add(a.getUrl()));
+        String cd = ue.msg.getContentDisplay();
 
         Bot.Log(ue.guild.getId(),
-            "\033[0;2m" + new Date().getTime() + " " +
+            "\033[0;2m" + timeFormat.format(new Date()) + " " +
             ue.guild.getName() + "\033[2;90m::\033[0;2m" +
             ue.channel.getName() + "\033[2;90m::\033[0;2m" +
             "\033[0;2m" + ue.author.getAsTag() +
             "\033[0;37m" + (attach.size() == 0 ? "" : Arrays.toString(attach.toArray())) +
-            ": " + ue.msg.getContentDisplay()
+            ": " + (cd.matches("^\\w") ? cd : "Message(" + cd.length() + ")")
         );
 
         handleEvent(ue);
     }
 
+    /**
+     * separates bot commands from other messages
+     * @param e
+     */
     private static void handleEvent(UniEvent e)
     {
         String msg = e.msg.getContentRaw();
@@ -76,7 +82,7 @@ public class EventHandler extends ListenerAdapter
         {
             msg = msg.substring(Bot.prefix.length()).trim();
 
-            String cmd = msg.split("\\s+")[0].toLowerCase();
+            String cmd = msg.split("\\s+")[0];
             msg = msg.replaceAll(cmd + "\\s*", "");
 
             if(!Commands.handleUniversal(e, cmd, msg) && e.evType == UniEvent.EventType.GUILD)
@@ -89,7 +95,7 @@ public class EventHandler extends ListenerAdapter
         }
         else
         {
-            if (e.evType == UniEvent.EventType.GUILD) Messages.handleGuild(e);
+            if (e.evType == UniEvent.EventType.GUILD) EpDistributor.handleGuildMessage(e);
             //if (e.servType == UniEvent.ServType.PRIVATE) Messages.handlePrivate();
         }
     }
@@ -133,13 +139,18 @@ public class EventHandler extends ListenerAdapter
         HandleReaction(ue);
     }
 
+    /**
+     * Handles reaction events for Polls and bot actions
+     * @param e
+     */
     private static void HandleReaction(UniEvent e)
     {
         if(e.author.isBot()) return;
         String msg = e.msg.getContentRaw();
 
+        // role poll replies
         if(msg.startsWith("Role Poll:"))
-            if(Objects.requireNonNull(Bot.getGuildData(e.guild.getId())).polls.contains(e.msg.getIdLong()))
+            if(Bot.getGuildData(e.guild.getId()).polls.contains(e.msg.getIdLong()))
             {
                 for (String s : msg.split("\n"))
                     if (s.contains(e.rEmote.getEmoji()))
@@ -151,12 +162,14 @@ public class EventHandler extends ListenerAdapter
                     }
             }
 
+        // bot actions
         if (!e.msg.getAuthor().isBot() || !isAdmin(e)) return;
         Bot.tRes = null;
         if (e.evType == EventType.REACTADD)
         {
             switch (e.rEmote.getName())
             {
+                // delete bot message
                 case "❌":
                     if (msg.split("\n", 2)[0].matches("^(Role )?Poll:.*"))
                     {
@@ -166,6 +179,7 @@ public class EventHandler extends ListenerAdapter
                     } else Bot.delMsg(e);
                     break;
 
+                // undo action
                 case "↪":
                     Bot.delMsg(e);
                     for (String l : msg.split("\n"))
@@ -177,6 +191,7 @@ public class EventHandler extends ListenerAdapter
                         }
                     break;
 
+                // confirm action
                 case "✅":
                     if (msg.matches("delete category '.*'\\?"))
                     {
@@ -193,6 +208,7 @@ public class EventHandler extends ListenerAdapter
         }
         else
         {
+            // undo confirmable action
             if(e.rEmote.getName().equals("❌") && msg.split("\n", 2)[0].matches("^Delete (Role )?Poll\\?.*"))
             {
                 e.msg.removeReaction("✅").queue();

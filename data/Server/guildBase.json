@@ -1,0 +1,21 @@
+{
+	"users": {
+		"default": {
+			"level": 0,
+			"static": false,
+			"textEp": 0,
+			"voiceEp": 0,
+			"warnings": 0
+		}
+	},
+	"maxTextEp": 50,
+	"maxTextLength": 500,
+	"textTimeout": 10,
+	"voiceEppm": 5,
+	"afkChannel": [0],
+	"warnStatic": 3,
+	"levelEp": 200,
+	"adminRole": 0,
+	"version": 23,
+	"roles": { }
+}

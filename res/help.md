@@ -16,20 +16,19 @@
 *__static USER [REASON]__:* block user Xp
 *__unstatic USER [REASON]__:* allow user Xp
 
-*__makeCategory NAME [N]__:* cat with N voice channels
-*__deleteCategory NAME__:* delete whole category
-
 *__setAdminRole ROLE__:* define bot user admin role
+*__category add|delete NAME [VOICE_COUNT [VOICE_NAME]]__:* modify categories
+*__levelRole add|remove level ROLE__:* modify level roles
 *__embed__:* send custom embed
-	- __blankField|blank|b__
-	- __field|fi|f__ TITLE "TEXT"
-	- __color|c__ COLOR
-	- __author|a__ USER [LINK_URL] [THUMB_URL]
-	- __title|t__ TITLE [URL]
-	- __description|desc|d__ "TEXT"
-	- __footer|fo__ "TEXT" [URL]
-	- __image|img|i__ URL
-	- __thumbnail|th__ URL
-	- __timestamp|ts|tm__
+	- __blankField__
+	- __field__ TITLE "TEXT"
+	- __color__ COLOR
+	- __author__ USER [LINK_URL] [THUMB_URL]
+	- __title__ TITLE [URL]
+	- __description__ "TEXT"
+	- __footer__ "TEXT" [URL]
+	- __image__ URL
+	- __thumbnail__ URL
+	- __timestamp__
 *_ _*
 Thanks for using %nBot

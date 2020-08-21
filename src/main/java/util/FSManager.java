@@ -13,8 +13,14 @@ import java.util.Map.Entry;
 import core.Bot;
 import org.json.JSONObject;
 
+/** filesystem operations*/
 public class FSManager {
 
+	/**
+	 * Reads a file from the file system
+	 * @param path
+	 * @return file content
+	 */
 	public static String readFile(String path) {
 		try {
 			return new String(Files.readAllBytes(getFile(path).toPath()));
@@ -25,10 +31,14 @@ public class FSManager {
 		return null;
 	}
 
+	/**
+	 * Writes a file to the file system
+	 * @param path
+	 * @param data
+	 */
 	public static void writeFile(String path, String data) {
 		try {
 			FileOutputStream fos = new FileOutputStream(getFile(path));
-			fos.write("sbfv2".getBytes());
 			fos.write(data.getBytes());
 			fos.close();
 		} catch(Exception e) {
@@ -37,6 +47,10 @@ public class FSManager {
 		}
 	}
 
+	/**
+	 * Reads the hostname from the system environment variables
+	 * @return hostname
+	 */
 	public static int host() {
 	    try
 	    {
@@ -50,29 +64,46 @@ public class FSManager {
 	    return 0xF417;
 	}
 
+	/**
+	 * implements default values
+	 * @param a check value
+	 * @param b default value
+	 * @return a or b
+	 */
 	private static String alt(String a, String b) {
 		return a == null ? b : a;
 	}
 
-	public static JSONObject loadJSON(File f) {
+	/**
+	 * Read a json file from the file system
+	 * @param jsonFile
+	 * @return json
+	 */
+	public static JSONObject loadJSON(File jsonFile) {
 	    try
 	    {
-	        return new JSONObject(new String(Files.readAllBytes(f.toPath())));
+	        return new JSONObject(new String(Files.readAllBytes(jsonFile.toPath())));
 	    }
 	    catch (Exception e)
 	    {
-	        Bot.Log(f.getPath() + " could not be loaded");
+	        Bot.Log(jsonFile.getPath() + " could not be loaded");
 	        e.printStackTrace();
 	    }
 		return null;
 	}
 
-	public static JSONObject loadSBF(File f, int key) {
+	/**
+	 * reads and parses a sbf file from file system
+	 * @param sbfFile
+	 * @param key decryption key
+	 * @return json
+	 */
+	public static JSONObject loadSBF(File sbfFile, int key) {
 		JSONObject o = null;
 
 		try
 	    {
-	    	byte[] arr = Files.readAllBytes(f.toPath());
+	    	byte[] arr = Files.readAllBytes(sbfFile.toPath());
 	    	String sb = new String(Arrays.copyOfRange(arr, 0, 10));
 
 			int version = 0;
@@ -86,39 +117,55 @@ public class FSManager {
 	    	if(version == 10) arr = Base64.getDecoder().decode(arr);
 	    	else if(version == 0) throw new Exception("Invalid file version. Starts with " + sb.replaceAll("[^!-z]+", ""));
 
-	    	o = new JSONObject(AES.decrypt(arr, Integer.toString(key)));
+	    	o = new JSONObject(new String(Bot.crypt.decrypt(arr, Integer.toString(key))));
 	    	o.put("version", version);
 	    }
 	    catch (Exception e)
 	    {
-	        Bot.Log(f.getPath() + " could not be loaded");
+	        Bot.Log(sbfFile.getPath() + " could not be loaded");
 	        e.printStackTrace();
 	    }
 
 		return o;
 	}
 
-	public static void saveSBF(File f, JSONObject data, int key) {
+	/**
+	 * writes json to a sbf file
+	 * @param sbfFile
+	 * @param data json data
+	 * @param key encryption key
+	 */
+	public static void saveSBF(File sbfFile, JSONObject data, int key) {
 	    try
 	    {
 	    	data.remove("version");
-	        FileOutputStream fos = new FileOutputStream(f);
-	        fos.write(Bot.versions.get(Bot.version).getBytes());
-			fos.write(AES.encrypt(data.toString(), Integer.toString(key)));
+	        FileOutputStream fos = new FileOutputStream(sbfFile);
+	        fos.write(Bot.versions.get(Bot.sbfVersion).getBytes());
+			fos.write(Bot.crypt.encrypt(data.toString(), Integer.toString(key)));
 	        fos.close();
 	    }
 	    catch (Exception e)
 	    {
-	        Bot.Log(f.getPath() + " could not be saved");
+	        Bot.Log(sbfFile.getPath() + " could not be saved");
 	        e.printStackTrace();
 	    }
 	}
 
+	/**
+	 * returns a file from the default {@link Bot#dataDir}
+	 * @param folder
+	 * @param filePath
+	 * @return dataFile
+	 */
 	public static File getDataFile(String folder, String filePath) {
 	    return getFile(String.format(Bot.dataDir, folder) + filePath);
 	}
 
-	// Create file and subdirs if not existent
+	/**
+	 * Create file and subdirs if not existent
+	 * @param path
+	 * @return file
+	 */
 	public static File getFile(String path) {
 	    File f = new File(path);
 	    if (!f.getParentFile().exists()) f.getParentFile().mkdirs();

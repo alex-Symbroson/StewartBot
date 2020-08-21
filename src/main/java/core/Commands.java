@@ -3,7 +3,6 @@ package core;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.*;
 import util.FSManager;
-import util.SECRETS;
 import wrapper.GuildWrapper;
 import wrapper.UserWrapper;
 
@@ -24,11 +23,19 @@ import org.json.JSONObject;
 
 import static core.Bot.*;
 
+/** contains all command handlers */
 public class Commands
 {
+    /**
+     * handle commands for private and guild channels
+     * @param e
+     * @param cmd the command
+     * @param arg the argument
+     * @return command consumed
+     */
     static boolean handleUniversal(UniEvent e, String cmd, String arg)
     {
-        switch (cmd)
+        switch (cmd.toLowerCase())
         {
             case "info":
             {
@@ -36,10 +43,10 @@ public class Commands
                 info.setTitle(Bot.name + " Bot");
                 info.setDescription(Bot.desc);
                 info.setColor(0xf45642);
-                info.setAuthor(AUTHOR);
+                info.setAuthor(SECRETS.AUTHOR);
 
                 if (e.channel != null && e.channel.getType() == ChannelType.TEXT)
-                    info.setFooter("Created by " + AUTHOR, e.member.getUser().getAvatarUrl());
+                    info.setFooter("Created by " + SECRETS.AUTHOR, Bot.jda.getUserById(SECRETS.OWNID).getAvatarUrl());
 
                 e.channel.sendMessage(info.build()).queue(Bot.addX);
                 info.clear();
@@ -86,13 +93,96 @@ public class Commands
                 e.channel.sendMessage(result.toString().split("i>")[1].replace("</", "")).queue();
             } break;
 
+            case "checkvoice":
+                if (e.author.getIdLong() != SECRETS.OWNID) break;
+                EpDistributor.voiceCheckTimerTask.run();
+                break;
+
+            case "get":
+            case "set":
+            case "crt":
+            case "put":
+            case "add":
+            case "del": {
+                if (e.author.getIdLong() != SECRETS.OWNID) break;
+                String gid;
+
+                if(e.guild != null) gid = e.guild.getId();
+                else
+                {
+                    int p = arg.indexOf(' ');
+                    if(Bot.getGuildData(gid = arg.substring(0, p == -1 ? arg.length() : p), cmd.equals("crt")) == null) {
+                        tRes = "Invalid guild '" + arg.substring(0, p == -1 ? arg.length() : p) + "'";
+                        break;
+                    }
+                    arg = p == -1 ? "" : arg.substring(p + 1);
+                }
+
+                final String fArg = arg
+                    .replaceAll("^<@!?([0-9]+)>\\s*", "users[\"$1\"]")
+                    .replaceFirst("\\s", "\0");
+
+                e.author.openPrivateChannel().queue(c ->
+                {
+                    String msg;
+
+                    try
+                    {
+                        if (cmd.equals("get") || cmd.equals("crt"))
+                        {
+                            GuildWrapper guild = Bot.getGuildData(gid);
+
+                            if (fArg.length() == 0) msg = guild.guild.toString();
+                            else
+                            {
+                                Object o = JsonPath.read(guild.guild.toString(), fArg);
+                                if (o instanceof LinkedHashMap) msg = new JSONObject((HashMap) o).toString();
+                                else msg = o.toString();
+                            }
+                        }
+                        else
+                        {
+                            final String[] args = fArg.split("\0");
+                            DocumentContext ctx = JsonPath.parse(Bot.getGuildJson(gid, false).toString());
+
+                            switch (cmd)
+                            {
+                                case "put":
+                                    String[] kv = args[1].replaceFirst(" ", "\0").split("\0");
+                                    ctx.put(args[0], kv[0], kv[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(kv[1]).json());
+                                    break;
+                                case "set": ctx.set(args[0], args[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(args[1]).json()); break;
+                                case "add": ctx.add(args[0], args[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(args[1]).json()); break;
+                                case "del": ctx.delete(args[0]); break;
+                            }
+
+                            Object o = ctx.read(args[0]);
+                            if (o instanceof LinkedHashMap) msg = new JSONObject((HashMap) o).toString();
+                            else msg = o.toString();
+
+                            Bot.withGuildData(gid, true, g -> g.loadJSON(new JSONObject(ctx.jsonString())));
+                        }
+                    } catch (Exception err) { msg = err.toString(); }
+
+                    for (int i = 0; i < msg.length(); i += 2000)
+                        e.channel.sendMessage(msg.substring(i, Math.min(i + 2000, msg.length()))).queue(Bot.addX);
+                });
+            } break;
+
             default:
                 return false;
             // e.channel.sendMessage(Bot.name + " doesn't know '" + cmd + "'!").queue();
         }
+        if(tRes != null && e.channel != null) e.channel.sendMessage(tRes).queue();
         return true;
     }
 
+    /**
+     * handle commands for guild channels only
+     * @param e
+     * @param cmd the command
+     * @param arg the argument
+     */
     static void handleGuild(UniEvent e, String cmd, String arg)
     {
         String res = "";
@@ -100,74 +190,8 @@ public class Commands
         final String guildId = e.guild.getId();
         boolean addX = false, addR = false, addT = false;
 
-        switch (cmd)
+        switch (cmd.toLowerCase())
         {
-            case "get": {
-                if (e.author.getIdLong() != SECRETS.OWNID) return;
-
-                e.author.openPrivateChannel().queue(c -> {
-                    String msg;
-
-                    try
-                    {
-                        GuildWrapper guild = Bot.getGuildData(guildId);
-                        assert guild != null;
-
-                        if(arg.length() == 0) msg = guild.guild.toString();
-                        else
-                        {
-                            Object o = JsonPath.read(guild.guild.toString(),
-                                arg.replaceAll("^<@!?([0-9]+)>(\\s*(\\.))?", "$3users[\"$1\"]").replaceFirst("\\s", "\0"));
-                            if(o instanceof LinkedHashMap) msg = new JSONObject((HashMap)o).toString();
-                            else msg = o.toString();
-                        }
-
-                    } catch(Exception err) { msg = err.toString(); }
-
-                    for(int i = 0; i < msg.length(); i += 2000)
-                        e.channel.sendMessage(msg.substring(i, Math.min(i + 2000, msg.length()))).queue(Bot.addX);
-                });
-            } break;
-
-            case "set":
-            case "put":
-            case "add":
-            case "del": {
-                if (e.author.getIdLong() != SECRETS.OWNID) return;
-
-                e.author.openPrivateChannel().queue(c ->
-                    Bot.withGuildData(guildId, true, guild ->
-                    {
-                        String msg;
-
-                        try
-                        {
-                            String[] args = arg.replaceAll("^<@!?([0-9]+)>(\\s*(\\.))?", "$3users[\"$1\"]").replaceFirst("\\s", "\0").split("\0");
-                            DocumentContext ctx = JsonPath.parse(guild.guild.toString());
-
-                            switch(cmd)
-                            {
-                                case "put": String[] kv = args[1].replaceFirst(" ", "\0").split("\0");
-                                    ctx.put(args[0], kv[0], kv[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(kv[1]).json()); break;
-                                case "set": ctx.set(args[0], args[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(args[1]).json()); break;
-                                case "add": ctx.add(args[0], args[1].startsWith("$") ? ctx.read(args[1]) : JsonPath.parse(args[1]).json()); break;
-                                case "del": ctx.delete(args[0]); break;
-                            }
-
-                            Object o = ctx.read(args[0]);
-                            if(o instanceof LinkedHashMap) msg = new JSONObject((HashMap)o).toString();
-                            else msg = o.toString();
-
-                            guild.loadJSON(new JSONObject(ctx.jsonString()));
-
-                        } catch(Exception err) { msg = err.toString(); }
-
-                        for(int i = 0; i < msg.length(); i += 2000)
-                            e.channel.sendMessage(msg.substring(i, Math.min(i + 2000, msg.length()))).queue(Bot.addX);
-                    }));
-
-            } break;
-
             case "setadminrole": {
                 if(!admin) break;
 
@@ -178,7 +202,25 @@ public class Commands
                 addX = true;
                 addR = res.contains("Created role '");
 
-                Bot.withGuildData(guildId, true, g -> g.adminRole = ((Role) r).getIdLong());
+                Bot.withGuildData(guildId, true, g -> g.adminRole = r.getIdLong());
+            } break;
+
+            case "levelrole": {
+                if(!admin) break;
+                String[] args = arg.replaceFirst("^(\\S+)\\s+(\\d+)\\s+", "$1\0$2\0").split("\0");
+                if(args.length != 3) break;
+                // (add|+|remove|rm|delete|del|-)
+                Role r = tryGetRole(e, args[2]);
+                if(tRes != null) res = tRes;
+                if(r == null) break;
+
+                addX = true;
+                addR = res.contains("Created role '");
+
+                Bot.withGuildData(guildId, true, g -> {
+                    if(args[0].matches("^(add|\\+)$")) g.roles.put(Integer.parseInt(args[1]), r.getName());
+                    else if(args[0].matches("^(remove|rm|delete|del|-)$")) g.roles.remove(Integer.parseInt(args[1]));
+                });
             } break;
 
             case "warn": {
@@ -245,21 +287,28 @@ public class Commands
                 });
             } break;
 
-            case "makecategory": {
+            case "category": {
                 if(!admin) break;
-                String[] args = arg.split(" ");
-                e.guild.createCategory(args[0]).queue(c -> {
-                    c.createTextChannel(args[0].toLowerCase().replace(" ", "-")).queue();
-                    int n = args.length == 2 ? Integer.parseInt(args[1]) : 1;
-                    for(int i = 1; i <= n; i++) c.createVoiceChannel("voice-" + i).queue();
-                });
-            } break;
+                String[] args = arg.replaceFirst("^(\\S+)\\s+(\\S+|\"[^\"]+\")(\\s+(\\d+)(\\s+(.*))?)?$", "$1\0$2\0$4\0$6")
+                    .replaceAll("\0$|(\0)\0+", "$1").split("\0");
+                if(args.length < 2) break;
 
-            case "deletecategory": {
-                if(!admin || arg.isEmpty()) break;
-                List<Category> cats = e.guild.getCategoriesByName(arg, false);
-                if(cats.size() > 0) res = "delete category '" + cats.get(0).getName() + "'?";
-                addX = addT = true;
+                if(args[0].matches("^(add|create|make|\\+)$"))
+                {
+                    e.guild.createCategory(args[1]).queue(c ->
+                    {
+                        c.createTextChannel(args[0].toLowerCase().replace(" ", "-")).queue();
+                        int n = Integer.parseInt(Bot.get(args, 2, "1"));
+                        String name = Bot.get(args, 3, args[0].replaceAll("\\W", ""));
+                        for(int i = 1; i <= n; i++) c.createVoiceChannel(name + "-" + i).queue();
+                    });
+                }
+                else if(args[0].matches("^(remove|rm|delete|del|-)$"))
+                {
+                    List<Category> cats = e.guild.getCategoriesByName(args[1], false);
+                    if(cats.size() > 0) res = "delete category '" + cats.get(0).getName() + "'?";
+                    addX = addT = true;
+                }
             } break;
 
             case "poll":
@@ -406,6 +455,7 @@ public class Commands
         }
         Bot.tRes = null;
 
+        // replies to the command and adds action reactions
         if(res != null && !res.isEmpty())
         {
             boolean fAddX = addX, fAddR = addR, fAddT = addT;
