@@ -13,19 +13,20 @@ import javax.annotation.Nullable;
  * Wrapper for all discord events
  * Undefined fields will be left null
  */
-public class UniEvent
+class UniEvent
 {
-    @Nullable public final Member member;
-    @Nullable public final User author;
-    @Nullable public final MessageChannel channel;
-    @Nullable public final Message msg;
-    @Nullable public final EventType evType;
-    @Nullable public Guild guild;
-    @Nullable public final ReactionEmote rEmote;
+    @Nullable final Member member;
+    final User author;
+    final MessageChannel channel;
+    @Nullable final Message msg;
+    @Nullable final EventType evType;
+    Guild guild;
+    @Nullable final ReactionEmote rEmote;
 
-    public enum EventType { PRIVATE, GUILD, REACTADD, REACTRM };
+    enum EventType { PRIVATE, GUILD, REACTADD, REACTRM };
 
-    UniEvent(EventType evType, Guild guild, MessageChannel channel, User author, Member member, Message msg, ReactionEmote rEmote) {
+    UniEvent(@Nullable EventType evType, Guild guild, MessageChannel channel, User author, @Nullable Member member, @Nullable Message msg, @Nullable ReactionEmote rEmote)
+    {
         this.evType = evType;
         this.guild = guild;
         this.channel = channel;
@@ -35,12 +36,14 @@ public class UniEvent
         this.rEmote = rEmote;
     }
 
-    public UniEvent(Guild guild, MessageChannel channel, User user) {
-        this(null, guild, channel, user, null, null, null);
+    UniEvent(Guild guild, MessageChannel channel, User user)
+    {
+        this(null, guild, channel, user, guild != null && user != null ? guild.getMember(user) : null, null, null);
     }
 
 
-    UniEvent(PrivateMessageReceivedEvent e) {
+    UniEvent(PrivateMessageReceivedEvent e)
+    {
         evType = EventType.PRIVATE;
         author = e.getAuthor();
         msg = e.getMessage();
@@ -50,7 +53,8 @@ public class UniEvent
         channel = e.getChannel();
     }
 
-    UniEvent(GuildMessageReceivedEvent e) {
+    UniEvent(GuildMessageReceivedEvent e)
+    {
         evType = EventType.GUILD;
         author = e.getAuthor();
         msg = e.getMessage();
@@ -60,7 +64,8 @@ public class UniEvent
         rEmote = null;
     }
 
-	UniEvent(GuildMessageReactionAddEvent e, boolean retrieveMsg) {
+	UniEvent(GuildMessageReactionAddEvent e, boolean retrieveMsg)
+    {
         evType = EventType.REACTADD;
         msg = retrieveMsg ? e.getChannel().retrieveMessageById(e.getMessageId()).complete() : null;
         author = e.getUser();
@@ -70,7 +75,8 @@ public class UniEvent
         rEmote = e.getReactionEmote();
 	}
 
-	public UniEvent(GuildMessageReactionRemoveEvent e, boolean retrieveMsg) {
+	UniEvent(GuildMessageReactionRemoveEvent e, boolean retrieveMsg)
+    {
 	    evType = EventType.REACTRM;
         msg = retrieveMsg ? e.getChannel().retrieveMessageById(e.getMessageId()).complete() : null;
         author = e.getUser();

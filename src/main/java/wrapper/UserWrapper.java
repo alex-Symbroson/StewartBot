@@ -14,7 +14,8 @@ public class UserWrapper {
      * Parse user data from a json structure
      * @param user
      */
-    public UserWrapper(JSONObject user) {
+    public UserWrapper(JSONObject user)
+    {
         this.user = user;
         level = user.getInt("level");
         textEp = user.getInt("textEp");
@@ -28,7 +29,8 @@ public class UserWrapper {
      * Writes the modified data to the json structure
      * @return self
      */
-    public UserWrapper flush() {
+    public UserWrapper flush()
+    {
         user.put("level", level);
         user.put("textEp", textEp);
         user.put("voiceEp", voiceEp);

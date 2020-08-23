@@ -20,6 +20,7 @@ public class Crypt
     private String algorithm;
     /** {@link javax.crypto.spec.SecretKeySpec} */
     private String keySpecAlgorithm;
+    private final SecretKeySpec digest;
 
     /**
      * Initialize crypt
@@ -29,12 +30,22 @@ public class Crypt
      * @throws NoSuchAlgorithmException
      * @throws NoSuchPaddingException
      */
-    public Crypt(String padding, String algorithm, String keySpecAlgorithm)
+    public Crypt(String padding, String algorithm, String keySpecAlgorithm, String key)
     throws NoSuchAlgorithmException, NoSuchPaddingException
     {
         setPadding(padding);
-        setAlgorithm(algorithm);
-        setKeySpecAlgorithm(keySpecAlgorithm);
+        digest = getDigest(algorithm, keySpecAlgorithm, key);
+    }
+
+    /**
+     * Initialize crypt
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchPaddingException
+     */
+    public Crypt(String key)
+    throws NoSuchAlgorithmException, NoSuchPaddingException
+    {
+        this("AES/ECB/PKCS5Padding", "SHA-1", "AES", key);
     }
 
     /**
@@ -42,7 +53,8 @@ public class Crypt
      * @param myKey
      * @throws NoSuchAlgorithmException
      */
-    private SecretKeySpec getDigest(String myKey) throws NoSuchAlgorithmException
+    private static SecretKeySpec getDigest(String algorithm, String keySpecAlgorithm, String myKey)
+    throws NoSuchAlgorithmException
     {
         byte[] key = myKey.getBytes(StandardCharsets.UTF_8);
         MessageDigest sha = MessageDigest.getInstance(algorithm);
@@ -54,7 +66,6 @@ public class Crypt
     /**
      * Encrypt data
      * @param strToEncrypt
-     * @param key
      * @return encrypted data
      * @throws NoSuchPaddingException
      * @throws NoSuchAlgorithmException
@@ -62,18 +73,17 @@ public class Crypt
      * @throws IllegalBlockSizeException
      * @throws InvalidKeyException
      */
-    public byte[] encrypt(String strToEncrypt, String key)
+    public byte[] encrypt(String strToEncrypt)
     throws NoSuchPaddingException, NoSuchAlgorithmException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException
     {
         Cipher cipher = Cipher.getInstance(padding);
-        cipher.init(Cipher.ENCRYPT_MODE, getDigest(key));
+        cipher.init(Cipher.ENCRYPT_MODE, digest);
         return cipher.doFinal(strToEncrypt.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
      * Decrypt data
      * @param strToDecrypt
-     * @param key
      * @return decrypted data
      * @throws NoSuchPaddingException
      * @throws NoSuchAlgorithmException
@@ -81,11 +91,11 @@ public class Crypt
      * @throws IllegalBlockSizeException
      * @throws InvalidKeyException
      */
-    public byte[] decrypt(byte[] strToDecrypt, String key)
+    public byte[] decrypt(byte[] strToDecrypt)
     throws NoSuchPaddingException, NoSuchAlgorithmException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException
     {
         Cipher cipher = Cipher.getInstance(padding);
-        cipher.init(Cipher.DECRYPT_MODE, getDigest(key));
+        cipher.init(Cipher.DECRYPT_MODE, digest);
         return cipher.doFinal(strToDecrypt);
     }
 
@@ -112,26 +122,9 @@ public class Crypt
      * @throws NoSuchPaddingException
      * @throws NoSuchAlgorithmException
      */
-    public void setPadding(String padding) throws NoSuchPaddingException, NoSuchAlgorithmException
+    private void setPadding(String padding) throws NoSuchPaddingException, NoSuchAlgorithmException
     {
         Cipher.getInstance(padding);
         this.padding = padding;
-    }
-
-    /**
-     * @param algorithm checks {@link java.security.MessageDigest#getInstance(String)}
-     * @throws NoSuchAlgorithmException
-     */
-    public void setAlgorithm(String algorithm) throws NoSuchAlgorithmException
-    {
-        MessageDigest.getInstance(algorithm);
-        this.algorithm = algorithm;
-    }
-
-    /** @param keySpecAlgorithm checks {@link javax.crypto.spec.SecretKeySpec#SecretKeySpec(byte[], String)} */
-    public void setKeySpecAlgorithm(String keySpecAlgorithm)
-    {
-        new SecretKeySpec("default".getBytes(), keySpecAlgorithm);
-        this.keySpecAlgorithm = keySpecAlgorithm;
     }
 }

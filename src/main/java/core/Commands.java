@@ -24,7 +24,7 @@ import org.json.JSONObject;
 import static core.Bot.*;
 
 /** contains all command handlers */
-public class Commands
+class Commands
 {
     /**
      * handle commands for private and guild channels
@@ -46,7 +46,8 @@ public class Commands
                 info.setAuthor(SECRETS.AUTHOR);
 
                 if (e.channel != null && e.channel.getType() == ChannelType.TEXT)
-                    info.setFooter("Created by " + SECRETS.AUTHOR, Bot.jda.getUserById(SECRETS.OWNID).getAvatarUrl());
+                    info.setFooter("Hosted by " + Bot.jda.getUserById(SECRETS.OWNID).getName() +
+                                   "\nCreated by " + SECRETS.AUTHOR, Bot.jda.getUserById(SECRETS.OWNID).getAvatarUrl());
 
                 e.channel.sendMessage(info.build()).queue(Bot.addX);
                 info.clear();
@@ -85,8 +86,7 @@ public class Commands
                     while ((line = rd.readLine()) != null) result.append(line);
                     rd.close();
                 }
-                catch (IOException ex)
-                {
+                catch (IOException ex) {
                     ex.printStackTrace();
                 }
 
@@ -94,8 +94,18 @@ public class Commands
             } break;
 
             case "checkvoice":
-                if (e.author.getIdLong() != SECRETS.OWNID) break;
+                if (!e.author.getId().equals(SECRETS.OWNID)) break;
                 EpDistributor.voiceCheckTimerTask.run();
+                break;
+
+            case "checklevel":
+                Member m = arg.isEmpty() ? null : e.guild.getMember(e.author);
+                withGuildData(e.guild.getId(), true, g ->
+                    EpDistributor.updateLevel(
+                        new UniEvent(e.guild, e.channel, m == null ? e.author : m.getUser()),
+                        g.getUser(m.getId()), g
+                    )
+                );
                 break;
 
             case "get":
@@ -104,15 +114,17 @@ public class Commands
             case "put":
             case "add":
             case "del": {
-                if (e.author.getIdLong() != SECRETS.OWNID) break;
+                if (!e.author.getId().equals(SECRETS.OWNID)) break;
                 String gid;
 
                 if(e.guild != null) gid = e.guild.getId();
                 else
                 {
                     int p = arg.indexOf(' ');
-                    if(Bot.getGuildData(gid = arg.substring(0, p == -1 ? arg.length() : p), cmd.equals("crt")) == null) {
-                        tRes = "Invalid guild '" + arg.substring(0, p == -1 ? arg.length() : p) + "'";
+                    final String guildid = arg.substring(0, p == -1 ? arg.length() : p);
+                    if(Bot.getGuildData(gid = guildid, cmd.equals("crt")) == null)
+                    {
+                        tRes = "Invalid guild '" + guildid + "'";
                         break;
                     }
                     arg = p == -1 ? "" : arg.substring(p + 1);
@@ -162,7 +174,8 @@ public class Commands
 
                             Bot.withGuildData(gid, true, g -> g.loadJSON(new JSONObject(ctx.jsonString())));
                         }
-                    } catch (Exception err) { msg = err.toString(); }
+                    }
+                    catch (Exception err) { msg = err.toString(); }
 
                     for (int i = 0; i < msg.length(); i += 2000)
                         e.channel.sendMessage(msg.substring(i, Math.min(i + 2000, msg.length()))).queue(Bot.addX);
@@ -239,12 +252,12 @@ public class Commands
                     m.getUser().openPrivateChannel().queue(c ->
                     {
                         c.sendMessage(
-                            "You have been warned by " + e.author.getAsTag() + " on " + e.guild.getName() + "." +
-                            (args.length == 1 ? "" : " Reason: " + args[1])).queue();
+                            String.format("You have been warned by %s on %s.%s", e.author.getAsTag(),
+                                e.guild.getName(), args.length == 1 ? "" : " Reason: " + args[1])).queue();
 
                         e.channel.sendMessage(
-                            m.getAsMention() + " has been warned by " + e.author.getAsTag() + "." +
-                            (args.length == 1 ? "" : " Reason: " + args[1])).queue();
+                            String.format("%s has been warned by %s.%s", m.getAsMention(), e.author.getAsTag(),
+                                args.length == 1 ? "" : " Reason: " + args[1])).queue();
                     });
 
                     if(++u.warnings >= g.warnStatic) handleGuild(e, "static", args[0]);
@@ -343,7 +356,8 @@ public class Commands
                         {
                             // Role
                             String role = arr[i].substring(reacts[i-1].length()).trim();
-                            if(!role.matches("<@&\\d+>.*")) {
+                            if(!role.matches("<@&\\d+>.*"))
+                            {
                                 Role r = tryGetRole(e, role.substring(0, role.indexOf(" ")));
                                 if(tRes != null) res += tRes + "\n";
                                 else arr[i] = arr[i].replace(role.substring(0, role.indexOf(" ")), r.getAsMention());
@@ -372,10 +386,12 @@ public class Commands
                 EmbedBuilder em = new EmbedBuilder();
                 String[] args = arg.replaceAll("(^|\\n|;)(\\w+)( +((\\S+|\"[^\"]*\"| +)*))?", "$2 $3\0").split("\0");
 
-                for(String a : args) {
+                for(String a : args)
+                {
                     String[] v = a.replaceAll("(\"[^\"]*\"|\\S+)\\s+", "$1\0").split("\0");
 
-                    switch(v[0].toLowerCase()) {
+                    switch(v[0].toLowerCase())
+                    {
                         case "bf": case "blank": case "blankField":
                             em.addBlankField(v.length > 1 && v[1].matches("t|true|1"));
                             break;
@@ -419,7 +435,8 @@ public class Commands
 
             case "status": {
                 GuildWrapper g = Bot.getGuildData(e.guild.getId());
-                if(g == null) {
+                if(g == null)
+                {
                     res = "Guild " + e.guild.getName() + " not found.";
                     break;
                 }
@@ -428,22 +445,22 @@ public class Commands
                 Member m = tryGetMember(e, arg);
                 if(m == null) m = e.guild.getMember(e.author);
 
-                UserWrapper u = g.getUser(e.author.getId());
-                if(u == null) {
-                    res = "User " + (m == null ? arg : m.getAsMention()) + " not found.";
+                UserWrapper u = g.getUser(m.getId());
+                if(u == null)
+                {
+                    res = "User " + m.getAsMention() + " not found.";
                     break;
                 }
 
-                if(m == null) em.setAuthor(e.author.getName(), null, e.author.getEffectiveAvatarUrl());
-                else em.setAuthor(m.getEffectiveName(), null, m.getUser().getEffectiveAvatarUrl());
-
+                em.setAuthor(m.getEffectiveName(), null, m.getUser().getEffectiveAvatarUrl());
                 em.setTitle("Level " + u.level);
 
                 int d = u.level == 0 ? 2 : 1, ep = d * (u.textEp + u.voiceEp) % g.levelEp;
                 char[] xp = new char[20];
                 for(int i = 0; i < 20; i++) xp[i] = i * g.levelEp < 20 * ep ? '█' : '▏';
                 xp[20 * ep / g.levelEp] = "▏▎▍▌▋▊▉█".charAt(8 * ep / g.levelEp);
-                em.addField("Xp:  " + (ep / d) + " / " + (g.levelEp / d),
+                em.addField(String.format("Xp:  %d / %d            _(%d:%d)_", ep / d, g.levelEp / d,
+                    100 * u.textEp / (u.textEp + u.voiceEp), 100 - 100 * u.textEp / (u.textEp + u.voiceEp)),
                     "```┏━━━━━━━━━━━━━━━━━━━━┓\n" +
                     "▕" + new String(xp) + "▏\n" +
                     "┗━━━━━━━━━━━━━━━━━━━━┛```",
@@ -462,7 +479,8 @@ public class Commands
             e.channel.sendMessage(res).queue(m -> {
                 if(fAddX) m.addReaction("❌").queue();
 
-                if(fAddR || fAddT) {
+                if(fAddR || fAddT)
+                {
                     if(fAddR) m.addReaction("↪").queue();
                     if(fAddT) m.addReaction("✅").queue();
                     Bot.withGuildData(guildId, true, g -> g.polls.add(m.getIdLong()));

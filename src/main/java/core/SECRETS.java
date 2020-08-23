@@ -1,8 +1,9 @@
 package core;
 
 /** secret data */
-public class SECRETS {
-    public static String TOKEN = "";
-    public static long OWNID = 0L;
+class SECRETS
+{
     public static final String AUTHOR = "Symbroson";
+    public static String OWNID;
+    public static int PASS;
 }

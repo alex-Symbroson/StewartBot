@@ -17,7 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import static core.Bot.isAdmin;
 import static core.Bot.timeFormat;
 
-public class EventHandler extends ListenerAdapter
+class EventHandler extends ListenerAdapter
 {
     @Override
     public void onPrivateMessageReceived(PrivateMessageReceivedEvent event)
@@ -102,7 +102,8 @@ public class EventHandler extends ListenerAdapter
 
 
     @Override
-    public void onGuildMessageReactionAdd(@NotNull GuildMessageReactionAddEvent event) {
+    public void onGuildMessageReactionAdd(@NotNull GuildMessageReactionAddEvent event)
+    {
         super.onGuildMessageReactionAdd(event);
         if (event.getMember().getUser().isBot()) return;
 
@@ -121,7 +122,8 @@ public class EventHandler extends ListenerAdapter
     }
 
     @Override
-    public void onGuildMessageReactionRemove(@NotNull GuildMessageReactionRemoveEvent event) {
+    public void onGuildMessageReactionRemove(@NotNull GuildMessageReactionRemoveEvent event)
+    {
         super.onGuildMessageReactionRemove(event);
         if (event.getMember().getUser().isBot()) return;
 
@@ -156,6 +158,7 @@ public class EventHandler extends ListenerAdapter
                     if (s.contains(e.rEmote.getEmoji()))
                     {
                         Role r = e.guild.getRoleById(s.replaceFirst(".*?<@&(\\d+)>.*", "$1"));
+                        if(r == null) continue;
                         if (e.evType == EventType.REACTRM) e.guild.removeRoleFromMember(e.member, r).queue();
                         else if (e.evType == EventType.REACTADD) e.guild.addRoleToMember(e.member, r).queue();
                         break;

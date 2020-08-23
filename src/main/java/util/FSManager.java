@@ -7,24 +7,26 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Map.Entry;
 
 import core.Bot;
 import org.json.JSONObject;
 
 /** filesystem operations*/
-public class FSManager {
-
+public class FSManager
+{
 	/**
 	 * Reads a file from the file system
 	 * @param path
 	 * @return file content
 	 */
-	public static String readFile(String path) {
-		try {
+	public static String readFile(String path)
+	{
+		try
+		{
 			return new String(Files.readAllBytes(getFile(path).toPath()));
-		} catch (IOException e) {
+		}
+		catch (IOException e) {
 	        Bot.Log(path + " could not be read");
 			e.printStackTrace();
 		}
@@ -36,42 +38,18 @@ public class FSManager {
 	 * @param path
 	 * @param data
 	 */
-	public static void writeFile(String path, String data) {
-		try {
+	public static void writeFile(String path, String data)
+	{
+		try
+		{
 			FileOutputStream fos = new FileOutputStream(getFile(path));
 			fos.write(data.getBytes());
 			fos.close();
-		} catch(Exception e) {
+		}
+		catch(Exception e) {
 	        Bot.Log(path + " could not be saved");
 	        e.printStackTrace();
 		}
-	}
-
-	/**
-	 * Reads the hostname from the system environment variables
-	 * @return hostname
-	 */
-	public static int host() {
-	    try
-	    {
-	        return InetAddress.getLocalHost().getHostName().hashCode() ^ alt(System.getenv("USERNAME"), System.getenv("USER")).hashCode();
-	    }
-	    catch (UnknownHostException | NullPointerException e)
-	    {
-	        Bot.Log("Hostname can not be resolved");
-	        e.printStackTrace();
-	    }
-	    return 0xF417;
-	}
-
-	/**
-	 * implements default values
-	 * @param a check value
-	 * @param b default value
-	 * @return a or b
-	 */
-	private static String alt(String a, String b) {
-		return a == null ? b : a;
 	}
 
 	/**
@@ -79,13 +57,13 @@ public class FSManager {
 	 * @param jsonFile
 	 * @return json
 	 */
-	public static JSONObject loadJSON(File jsonFile) {
+	public static JSONObject loadJSON(File jsonFile)
+	{
 	    try
-	    {
+		{
 	        return new JSONObject(new String(Files.readAllBytes(jsonFile.toPath())));
 	    }
-	    catch (Exception e)
-	    {
+	    catch (Exception e) {
 	        Bot.Log(jsonFile.getPath() + " could not be loaded");
 	        e.printStackTrace();
 	    }
@@ -95,10 +73,10 @@ public class FSManager {
 	/**
 	 * reads and parses a sbf file from file system
 	 * @param sbfFile
-	 * @param key decryption key
 	 * @return json
 	 */
-	public static JSONObject loadSBF(File sbfFile, int key) {
+	public static JSONObject loadSBF(File sbfFile)
+	{
 		JSONObject o = null;
 
 		try
@@ -107,21 +85,21 @@ public class FSManager {
 	    	String sb = new String(Arrays.copyOfRange(arr, 0, 10));
 
 			int version = 0;
-			for(Entry<Integer, String> v : Bot.versions.entrySet()) 
-				if(sb.startsWith(v.getValue())) {
+			for(Entry<Integer, String> v : Bot.sbfVersions.entrySet())
+				if(sb.startsWith(v.getValue()))
+				{
 					version = v.getKey();
 					arr = Arrays.copyOfRange(arr, v.getValue().getBytes().length, arr.length);
 					break;
 				}
 
-	    	if(version == 10) arr = Base64.getDecoder().decode(arr);
-	    	else if(version == 0) throw new Exception("Invalid file version. Starts with " + sb.replaceAll("[^!-z]+", ""));
+			if(version == 0) throw new Exception("Invalid file version. Starts with " + sb.replaceAll("[^!-z]+", ""));
+			else arr = Bot.crypt.decrypt(arr);
 
-	    	o = new JSONObject(new String(Bot.crypt.decrypt(arr, Integer.toString(key))));
+	    	o = new JSONObject(new String(arr));
 	    	o.put("version", version);
 	    }
-	    catch (Exception e)
-	    {
+	    catch (Exception e) {
 	        Bot.Log(sbfFile.getPath() + " could not be loaded");
 	        e.printStackTrace();
 	    }
@@ -133,19 +111,18 @@ public class FSManager {
 	 * writes json to a sbf file
 	 * @param sbfFile
 	 * @param data json data
-	 * @param key encryption key
 	 */
-	public static void saveSBF(File sbfFile, JSONObject data, int key) {
+	public static void saveSBF(File sbfFile, JSONObject data)
+	{
 	    try
 	    {
 	    	data.remove("version");
 	        FileOutputStream fos = new FileOutputStream(sbfFile);
-	        fos.write(Bot.versions.get(Bot.sbfVersion).getBytes());
-			fos.write(Bot.crypt.encrypt(data.toString(), Integer.toString(key)));
+	        fos.write(Bot.sbfVersions.get(Bot.sbfVersion).getBytes());
+			fos.write(Bot.crypt.encrypt(data.toString()));
 	        fos.close();
 	    }
-	    catch (Exception e)
-	    {
+	    catch (Exception e) {
 	        Bot.Log(sbfFile.getPath() + " could not be saved");
 	        e.printStackTrace();
 	    }
@@ -157,7 +134,8 @@ public class FSManager {
 	 * @param filePath
 	 * @return dataFile
 	 */
-	public static File getDataFile(String folder, String filePath) {
+	public static File getDataFile(String folder, String filePath)
+	{
 	    return getFile(String.format(Bot.dataDir, folder) + filePath);
 	}
 
@@ -166,7 +144,8 @@ public class FSManager {
 	 * @param path
 	 * @return file
 	 */
-	public static File getFile(String path) {
+	public static File getFile(String path)
+	{
 	    File f = new File(path);
 	    if (!f.getParentFile().exists()) f.getParentFile().mkdirs();
 	    return f;

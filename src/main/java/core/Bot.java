@@ -8,9 +8,11 @@ import wrapper.GuildWrapper;
 import org.json.JSONObject;
 
 import javax.annotation.Nullable;
+import javax.crypto.NoSuchPaddingException;
 import javax.security.auth.login.LoginException;
 
 import java.io.*;
+import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.function.Consumer;
@@ -21,7 +23,7 @@ import static util.FSManager.*;
  * main class
  * @author Symbroson
  * @version 2.4
- * @since 21.08.2020
+ * @since 23.08.2020
  */
 public class Bot
 {
@@ -29,11 +31,11 @@ public class Bot
     public static final boolean dev = false;
 
     /** bot version */
-    public static final int version = 24;
+    public static final int version = 25;
     /** current sbf version */
-    public static final int sbfVersion = 23;
+    public static final int sbfVersion = 24;
     /** sbf version map NUM:PREFIX */
-    public static final Map<Integer, String> versions = new TreeMap<>(Comparator.reverseOrder());
+    public static final Map<Integer, String> sbfVersions = new TreeMap<>(Comparator.reverseOrder());
 
     /** dataDir pattern */
     public static final String dataDir = "data/%s/";
@@ -73,44 +75,142 @@ public class Bot
         void exec(GuildWrapper guild);
     }
 
+    private static void printHelp()
+    {
+        Log("Syntax: StewartBot [OPTIONS] BOT-TOKEN OWNER_UID CRYPT_KEY\n\n" +
+            "OPTIONS\n" +
+            "\t--help -h  \tprints this help and exits\n" +
+            "\t--icon FILE\tset the bot icon on startup\n\n" +
+            "BOT-TOKEN\n" +
+            "\tDiscord bot token\n\n" +
+            "OWNER_UID\n" +
+            "\tYour Discord user id\n\n" +
+            "CRYPT_KEY\n" +
+            "\tThe key your sbf files should be encrypted with\n\n" +
+            "EXIT STATUS\n" +
+            "\t0 if everything went ok,\n" +
+            "\t1 if minor problems (ie. invalid icon file),\n" +
+            "\t2 if serious trouble (ie. no internet connection).");
+    }
+
     /**
      * Starts the bot and the voiceCheckTask
-     * @param args
+     * @param rawArgs
      * @throws LoginException
      */
-    public static void main(String[] args) throws Exception
+    public static void main(String[] rawArgs)
     {
+        // parse arguments
+        rawArgs = new String[]{"Njk3NDI0NTU3OTUwMTA3Njc4.Xo3H4Q.F4H7-mPKyyUjWhwZG_YAG1nzK-s", "253544853240152065", "NXFmYs"};
+        ArrayList<String> args = new ArrayList<>(Arrays.asList(rawArgs));
+
+        // help option
+        if(args.contains("--help") || args.contains("-h"))
+        {
+            printHelp();
+            args.remove("--help");
+            args.remove("--h");
+            return;
+        }
+
+        // set icon option
+        int i = args.indexOf("--icon");
+        Icon icon = null;
+        if(i != -1) try
+        {
+            args.remove(i);
+            icon = Icon.from(new File(args.get(i)));
+            args.remove(i);
+        }
+        catch (IOException e) {
+            Log("Invalid icon file");
+            System.exit(1);
+        }
+
+        // check for unknown left options
+        for(String arg : args)
+        {
+            if (arg.startsWith("-"))
+            {
+                new IllegalArgumentException("Unknown option " + arg).printStackTrace();
+                System.exit(1);
+            }
+        }
+
+        if(args.size() < 3)
+        {
+            Console c = System.console();
+            if(c != null)
+            {
+                Log("read from System.console");
+                System.out.print("Bot API token: ");
+                args.add(new String(c.readPassword()));
+                System.out.print("User ID: ");
+                args.add(new String(c.readPassword()));
+                System.out.print("Crypt password: ");
+                args.add(new String(c.readPassword()));
+                args.forEach(s -> System.out.println("--" + s + "--"));
+            }
+            else try
+            {
+                Log("read from BufferedReader");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+                System.out.print("Bot API token: ");
+                args.add(reader.readLine());
+                System.out.print("User ID: ");
+                args.add(reader.readLine());
+                System.out.print("Crypt password: ");
+                args.add(reader.readLine());
+            }
+            catch (IOException e) {
+                new Exception("Valid bot-token, user ID and crypt password required.").printStackTrace();
+                printHelp();
+                System.exit(2);
+                return;
+            }
+        }
+
         Log("initialize versions");
-        versions.put(23, "sbf23|");
-        versions.put(22, "sbf22|");
-        versions.put(21, "sbfv21");
-        versions.put(20, "sbfv2");
-        versions.put(10, "sbf");
-        if(!versions.containsKey(Bot.sbfVersion)) throw new Exception("current sbf version not registered");
+        sbfVersions.put(24, "sbf24|");
+        sbfVersions.put(23, "sbf23|");
+        sbfVersions.put(22, "sbf22|");
+        if(!sbfVersions.containsKey(Bot.sbfVersion))
+        {
+            new Exception("current sbf version not registered").printStackTrace();
+            System.exit(2);
+        }
 
-        Log("intialise crypt");
-        crypt = new Crypt("AES/ECB/PKCS5Padding", "SHA-1", "AES");
-
-        Log("intialise bot");
         try
         {
+            Log("initialize crypt");
+            crypt = new Crypt(args.get(2));
+
+            Log("initialize bot");
+            SECRETS.OWNID = args.get(1);
+
             // jda = JDABuilder.createDefault(core.SECRETS.TOKEN).build();
-            jda = new JDABuilder(AccountType.BOT).setToken(SECRETS.TOKEN).build();
+            jda = new JDABuilder(AccountType.BOT).setToken(args.get(0)).build();
+
+            // try if UID is valid
+            jda.openPrivateChannelById(SECRETS.OWNID).onErrorMap(e ->
+            {
+                e.printStackTrace();
+                System.exit(2);
+                return null;
+            }).complete();
         }
-        catch (LoginException e)
-        {
-            if(args.length < 2) {
-                Log("You need to provide a valid bot token.\nSyntax: StewartBot.jar BOT-TOKEN OWNER_UID");
-                return;
-            } else {
-                SECRETS.TOKEN = args[0];
-                SECRETS.OWNID = Long.parseLong(args[1]);
-                jda = new JDABuilder(AccountType.BOT).setToken(SECRETS.TOKEN).build();
-            }
+        catch (NoSuchPaddingException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            System.exit(2);
+        }
+        catch (LoginException e) {
+            Log("Invalid bot token.");
+            printHelp();
             e.printStackTrace();
         }
+
         jda.getPresence().setActivity(Activity.playing(prefix + "help || version " + (""+version).replaceAll("(?!^|$)", ".")));
-        jda.getSelfUser().getManager().setAvatar(Icon.from(new File("res/stewart.png"))).queue();
+        if(icon != null) jda.getSelfUser().getManager().setAvatar(icon).queue();
         jda.getPresence().setStatus(OnlineStatus.ONLINE);
         jda.setAutoReconnect(true);
         jda.addEventListener(new EventHandler());
@@ -121,28 +221,11 @@ public class Bot
         EpDistributor.scheduleVoiceCheck(5 * 60 * 1000);
     }
 
-    private static long tStart = 0, tStep = 0, tDiff = 0;
-
     /** method to add delete action reaction to a message */
 	public static Consumer<? super Message> addX = m -> m.addReaction("❌").queue();
 
 
 	/* logging */
-
-    /** save start time */
-    public static void tic()
-    {
-        tStart = tStep = System.nanoTime();
-    }
-
-    /** calculate and print time diff */
-    public static void toc()
-    {
-        long t = System.nanoTime();
-        tDiff = t - tStep;
-        System.out.println(String.format("dtime: %dus", tDiff / 1000));
-        tStep = t;
-    }
 
     /**
      * returns a data file object based on logFormat
@@ -235,7 +318,7 @@ public class Bot
     {
         if(guild == null) return;
         File f = getDataFile(guild.gid, "guild.sbf");
-        saveSBF(f, guild.flush().guild, guild.gid.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host());
+        saveSBF(f, guild.flush().guild);
     }
 
     /**
@@ -275,24 +358,23 @@ public class Bot
     public static JSONObject getGuildJson(String guildId, boolean save)
     {
 	    File f = getDataFile(guildId, "guild.sbf");
-	    int key = guildId.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host();
-	    JSONObject guild = loadSBF(f, key);
+	    JSONObject guild = loadSBF(f);
 
         if(guild == null && save)
         {
             Log("Loading fallback guildBase.sbf");
             File g = getDataFile("Server", "guildBase.sbf");
-            int l = guildId.hashCode() ^ f.getAbsoluteFile().hashCode() ^ host();
-            guild = loadSBF(g, l);
+            guild = loadSBF(g);
 
             if(guild == null)
             {
                 Log("Loading fallback guildBase.json");
                 guild = loadJSON(getDataFile("Server", "guildBase.json"));
 
-                if(guild != null) {
+                if(guild != null)
+                {
                     if(!guild.has("version")) guild.put("version", 0);
-                    saveSBF(g, new GuildWrapper(guild, guildId).guild, l);
+                    saveSBF(g, new GuildWrapper(guild, guildId).guild);
                 }
             }
         }
@@ -316,7 +398,7 @@ public class Bot
      */
     static boolean isAdmin(UniEvent e)
     {
-        return e.author.getIdLong() == SECRETS.OWNID || (e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() ||
+        return e.author.getId().equals(SECRETS.OWNID) || (e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() ||
                e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(getGuildData(e.guild.getId()).adminRole))));
     }
 
@@ -326,8 +408,10 @@ public class Bot
      * @param name
      * @return Role
      */
-    @Nullable public static Role tryGetRole(UniEvent e, String name) {
-        if(e.msg != null) {
+    @Nullable public static Role tryGetRole(UniEvent e, String name)
+    {
+        if(e.msg != null)
+        {
             List<Role> rs = e.msg.getMentionedRoles();
             if(rs.size() > 0) return rs.get(0);
         }
@@ -351,7 +435,7 @@ public class Bot
             }
 
             if(roles.size() > 0) r = roles.get(0);
-            else tRes = "Coulnd't find nor create role.";
+            else tRes = "Couldn't find nor create role.";
         }
         else
         {
@@ -368,7 +452,8 @@ public class Bot
      * @param name "&lt;@id&gt;" or "&lt;@!id&gt;" or @Name
      * @return Member
      */
-    @Nullable public static Member tryGetMember(UniEvent e, String name) {
+    @Nullable public static Member tryGetMember(UniEvent e, String name)
+    {
         List<Member> ms = e.msg.getMentionedMembers(e.guild);
         if(ms.size() > 0) return ms.get(0);
 
@@ -383,7 +468,7 @@ public class Bot
             List<Member> members = e.guild.getMembersByName(name.replaceFirst("^@", ""), true);
 
             if(members.size() > 0) m = members.get(0);
-            else tRes = "Coulnd't find member.";
+            else tRes = "Couldn't find member.";
         } else tRes = "Invalid format.";
 
         return m;
@@ -396,7 +481,8 @@ public class Bot
      * @param p
      * @return hasPermission
      */
-    public static boolean checkPerm(Member m, Permission p) {
+    public static boolean checkPerm(Member m, Permission p)
+    {
         assert m != null;
         boolean b = !m.hasPermission(p);
         if(b) tRes = "Missing Permission: " + p.getName();
@@ -408,7 +494,8 @@ public class Bot
      * @param p
      * @return hasPermission
      */
-    public static boolean checkPerm(UniEvent e, User u, Permission p) {
+    public static boolean checkPerm(UniEvent e, User u, Permission p)
+    {
         assert e.guild != null;
         return checkPerm(e.guild.getMember(u), p);
     }
@@ -417,7 +504,8 @@ public class Bot
      * @param p
      * @return hasPermission
      */
-    public static boolean checkPerm(UniEvent e, Permission p) {
+    public static boolean checkPerm(UniEvent e, Permission p)
+    {
         return checkPerm(e, Bot.jda.getSelfUser(), p);
     }
 
@@ -435,17 +523,20 @@ public class Bot
 
     /* general helper functions */
     /** get item from array with range checks */
-    public static Object get(Object[] arr, int index, Object dflt) {
+    public static Object get(Object[] arr, int index, Object dflt)
+    {
         if(arr.length <= index) return dflt;
         return arr[index];
     }
     /** get item from array with range checks */
-    public static String get(String[] arr, int index, String dflt) {
+    public static String get(String[] arr, int index, String dflt)
+    {
         if(arr.length <= index) return dflt;
         return arr[index];
     }
     /** get item from array with range checks */
-    public static String get(String[] arr, int index) {
+    public static String get(String[] arr, int index)
+    {
         if(arr.length <= index) return null;
         return arr[index];
     }
@@ -455,7 +546,8 @@ public class Bot
      * @param url
      * @return url or null
      */
-    @Nullable public static String getUrl(String url) {
+    @Nullable public static String getUrl(String url)
+    {
         return url != null && EmbedBuilder.URL_PATTERN.matcher(url).matches() ? url : null;
     }
 }

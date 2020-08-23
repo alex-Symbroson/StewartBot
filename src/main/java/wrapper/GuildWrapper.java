@@ -23,7 +23,7 @@ public class GuildWrapper
     /** guild id */
     public final String gid;
 
-    private HashMap<String, UserWrapper> userCache = new HashMap<>();
+    private final HashMap<String, UserWrapper> userCache = new HashMap<>();
 
     /**
      * Constructor
@@ -42,9 +42,11 @@ public class GuildWrapper
      * @param guild
      * @return
      */
-    public GuildWrapper loadJSON(JSONObject guild) {
+    public GuildWrapper loadJSON(JSONObject guild)
+    {
         this.guild = guild;
         this.users = guild.getJSONObject("users");
+        this.userCache.clear();
 
         version = guild.getInt("version");
         maxTextEp = guild.getInt("maxTextEp");
@@ -53,8 +55,7 @@ public class GuildWrapper
 		voiceEppm = guild.getInt("voiceEppm");
 		warnStatic = guild.getInt("warnStatic");
         levelEp = guild.getInt("levelEp");
-        
-		if(version >= 20) adminRole = guild.getLong("adminRole");
+        adminRole = guild.getLong("adminRole");
 
         afkChannel.clear();
         JSONArray jarr = guild.getJSONArray("afkChannel");
@@ -67,13 +68,10 @@ public class GuildWrapper
             roles.put(Integer.parseInt(k), jroles.getString(k));
 
         polls.clear();
-        if(version >= 22)
-        {
-            jarr = guild.getJSONArray("polls");
-            for(int i = 0; i < jarr.length(); i++)
-                polls.add(jarr.getLong(i));
-        }
-        
+        jarr = guild.getJSONArray("polls");
+        for(int i = 0; i < jarr.length(); i++)
+            polls.add(jarr.getLong(i));
+
         return this;
     }
 
@@ -115,7 +113,8 @@ public class GuildWrapper
     public UserWrapper getUser(String id, boolean create)
     {
         // return user if exists
-        if(users.has(id)) {
+        if(users.has(id))
+        {
             if(!userCache.containsKey(id))
                 userCache.put(id, new UserWrapper(users.getJSONObject(id)));
             return userCache.get(id);

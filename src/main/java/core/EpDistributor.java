@@ -15,10 +15,10 @@ import static core.Bot.Log;
 import static core.Bot.tryGetRole;
 
 /** Manages voice and text ep distribution */
-public class EpDistributor
+class EpDistributor
 {
     /** timer for {@link #voiceCheckTimerTask}  task */
-    public static final Timer voiceCheckTimer = new Timer();
+    static final Timer voiceCheckTimer = new Timer();
 
     private static class Voice
     {
@@ -135,8 +135,8 @@ public class EpDistributor
             for (EpDistributor.Voice v : voiceUsers)
             {
                 if(v.status != Voice.TALKED)
-                    Bot.Log("voice " + v.guild.getName() + ":" + v.user.getName() + " " +
-                            Bot.get(Voice.statusName, v.status + 1, "invalid " + v.status));
+                    Bot.Log(String.format("voice %s:%s %s", v.guild.getName(), v.user.getName(),
+                        Bot.get(Voice.statusName, v.status + 1, "invalid " + v.status)));
 
                 GuildWrapper g = Bot.getGuildData(v.guild.getId());
                 if (g == null) continue;
@@ -163,7 +163,8 @@ public class EpDistributor
     };
 
     /** Start {@link #voiceCheckTimerTask} */
-    static void scheduleVoiceCheck(long period) {
+    static void scheduleVoiceCheck(long period)
+    {
         voiceCheckTimer.scheduleAtFixedRate(voiceCheckTimerTask, 5000, period);
     }
 
@@ -178,15 +179,22 @@ public class EpDistributor
 
             // check if text timeout reached
             long now = new Date().getTime();
-            if(now - user.lTxtTime < 1000 * guild.textTimeout) {
-                Log(e.guild.getId(), "Ep: " + e.author.getAsMention() + " spammed");
+            if(now - user.lTxtTime < 1000 * guild.textTimeout)
+            {
+                Log(e.guild.getId(), "Ep: " + e.author.getAsTag() + " spammed");
                 return;
             }
 
+            // remove double words
+            String msg = e.msg.getContentStripped().toLowerCase();
+            for(int i = 0; i < 3 && msg.matches(".*\\b(\\w+)\\b.*?\\b\\1\\b.*"); i++)
+                msg = msg.replaceAll("\\b(\\w+)\\b(.*?)\\b\\1\\b", "$1$2");
+
             // replace links, remove whitespace, only count alphanumerics
-            String msg = e.msg.getContentStripped()
-                .replaceAll("https?://[^\\s]+", "link")
-                .replaceAll("\\s+|[^a-zA-Z0-9].*", "");
+            msg = msg
+                .replaceAll("https?://[^\\s]+", "alinktosomewherelse")
+                .replaceAll("\\W+", "")
+                .replaceAll("(\\w)\1+", "$1"); // double chars
             if(msg.length() == 0) return;
 
             // add ep
@@ -194,7 +202,7 @@ public class EpDistributor
             ep += e.msg.getAttachments().size() * guild.maxTextEp / 2;
             user.textEp += ep;
             user.lTxtTime = now;
-            Log(e.guild.getId(), "Ep: " + e.author.getAsMention() + " + " + ep);
+            Log(e.guild.getId(), "Ep: " + e.author.getAsTag() + " + " + ep);
             updateLevel(e, user, guild);
         });
     }
@@ -206,49 +214,50 @@ public class EpDistributor
      * @param user
      * @param guild
      */
-    private static void updateLevel(UniEvent e, UserWrapper user, GuildWrapper guild)
+    static void updateLevel(UniEvent e, UserWrapper user, GuildWrapper guild)
     {
         // update level
         int ep = user.textEp + user.voiceEp + guild.levelEp / 2;
         Bot.tRes = null;
 
-        for(int level = user.level + 1; level <= ep / guild.levelEp; level++) {
+        for(int level = user.level + 1; level <= ep / guild.levelEp; level++)
+        {
             user.level = level;
 
-            Member m = e.guild.getMember(e.author);
-            if(m != null) {
-                try
-                {
-                    if(Bot.checkPerm(e, Permission.NICKNAME_MANAGE)) break;
-                    m.modifyNickname(m.getEffectiveName().replaceFirst(" ?(Lv. \\d+)*$", " Lv. " + user.level)).queue();
-                } catch (HierarchyException ex) {
-                    Bot.Log("Hierarchy exception for " + m.getEffectiveName());
-                }
+            List<Role> mroles = e.member.getRoles();
+            try
+            {
+                if(Bot.checkPerm(e, Permission.NICKNAME_MANAGE)) break;
+                e.member.modifyNickname(e.member.getEffectiveName().replaceFirst(" ?(Lv. \\d+)*$", " Lv. " + user.level)).queue();
+            } catch (HierarchyException ex) {
+                Bot.Log("Hierarchy exception for " + e.member.getEffectiveName());
             }
             Log(guild.gid, "Lv: " + e.author.getAsMention() + " reached " + user.level);
 
             // update level role
-            if(guild.roles.containsKey(level)) {
-                if(Bot.checkPerm(e, Permission.MANAGE_ROLES)) break;
-                try
+            if(!guild.roles.containsKey(level)) continue;
+            if(Bot.checkPerm(e, Permission.MANAGE_ROLES)) break;
+            try
+            {
+                for (Map.Entry<Integer, String> lvRole : guild.roles.entrySet())
                 {
-                    for (Map.Entry<Integer, String> lvRole : guild.roles.entrySet())
+                    Role r = tryGetRole(e, lvRole.getValue());
+                    if(r == null)
                     {
-                        Role r = tryGetRole(e, lvRole.getValue());
-                        if(r == null)
-                        {
-                            Bot.sendOwnerMessage("Invalid role " + e.guild.getName() + ":" + lvRole.getValue());
-                            continue;
-                        }
-                        if (lvRole.getKey() == level) e.guild.addRoleToMember(e.author.getId(), r).queue();
-                        else if(e.member.getRoles().contains(r)) e.guild.removeRoleFromMember(e.author.getId(), r).queue();
-                        Log(guild.gid, "Lv: " + e.author.getAsMention() + " is now " + r.getAsMention());
+                        Bot.sendOwnerMessage("Invalid role " + e.guild.getName() + ":" + lvRole.getValue());
+                        continue;
                     }
+                    if (lvRole.getKey() == level)
+                    {
+                        e.guild.addRoleToMember(e.author.getId(), r).queue();
+                        Log(guild.gid, "Lv: " + e.author.getAsTag() + " is now " + r.getName());
+                    }
+                    else if(mroles.contains(r)) e.guild.removeRoleFromMember(e.author.getId(), r).queue();
+
                 }
-                catch(HierarchyException ex)
-                {
-                    Bot.Log("Hierarchy exception for " + e.author.getName());
-                }
+            }
+            catch(HierarchyException ex) {
+                Bot.Log("Hierarchy exception for " + e.author.getName());
             }
         }
         user.flush();
