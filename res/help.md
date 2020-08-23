@@ -17,6 +17,7 @@
 *__unstatic USER [REASON]__:* allow user Xp
 
 *__setAdminRole ROLE__:* define bot user admin role
+*__clear [before ID|after ID|around ID|beginning] [cmd|cmds [PREFIXES]|bot|bots]__:* deletes 100 messages
 *__category add|delete NAME [VOICE_COUNT [VOICE_NAME]]__:* modify categories
 *__levelRole add|remove level ROLE__:* modify level roles
 *__embed__:* send custom embed

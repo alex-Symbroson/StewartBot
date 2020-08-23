@@ -31,14 +31,14 @@ class UniEvent
         this.guild = guild;
         this.channel = channel;
         this.author = author;
-        this.member = member;
+        this.member = member != null ? member : guild != null && author != null ? guild.getMember(author) : null;
         this.msg = msg;
         this.rEmote = rEmote;
     }
 
-    UniEvent(Guild guild, MessageChannel channel, User user)
+    UniEvent(Guild guild, MessageChannel channel, User author)
     {
-        this(null, guild, channel, user, guild != null && user != null ? guild.getMember(user) : null, null, null);
+        this(null, guild, channel, author, guild != null && author != null ? guild.getMember(author) : null, null, null);
     }
 
 

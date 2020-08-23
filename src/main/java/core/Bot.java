@@ -22,8 +22,8 @@ import static util.FSManager.*;
 /**
  * main class
  * @author Symbroson
- * @version 2.4
- * @since 23.08.2020
+ * @version 2.5
+ * @since 24.08.2020
  */
 public class Bot
 {
@@ -100,8 +100,7 @@ public class Bot
      */
     public static void main(String[] rawArgs)
     {
-        // parse arguments
-        rawArgs = new String[]{"Njk3NDI0NTU3OTUwMTA3Njc4.Xo3H4Q.F4H7-mPKyyUjWhwZG_YAG1nzK-s", "253544853240152065", "NXFmYs"};
+        // parse console arguments
         ArrayList<String> args = new ArrayList<>(Arrays.asList(rawArgs));
 
         // help option
@@ -137,6 +136,7 @@ public class Bot
             }
         }
 
+        // request input of arguments
         if(args.size() < 3)
         {
             Console c = System.console();
@@ -209,6 +209,7 @@ public class Bot
             e.printStackTrace();
         }
 
+        // configure bot
         jda.getPresence().setActivity(Activity.playing(prefix + "help || version " + (""+version).replaceAll("(?!^|$)", ".")));
         if(icon != null) jda.getSelfUser().getManager().setAvatar(icon).queue();
         jda.getPresence().setStatus(OnlineStatus.ONLINE);
@@ -222,7 +223,7 @@ public class Bot
     }
 
     /** method to add delete action reaction to a message */
-	public static Consumer<? super Message> addX = m -> m.addReaction("❌").queue();
+	public static Consumer<Message> addX = m -> m.addReaction("❌").queue();
 
 
 	/* logging */

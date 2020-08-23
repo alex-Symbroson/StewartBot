@@ -15,6 +15,7 @@ import java.net.URL;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -220,6 +221,7 @@ class Commands
 
             case "levelrole": {
                 if(!admin) break;
+                // split up arguments
                 String[] args = arg.replaceFirst("^(\\S+)\\s+(\\d+)\\s+", "$1\0$2\0").split("\0");
                 if(args.length != 3) break;
                 // (add|+|remove|rm|delete|del|-)
@@ -302,6 +304,7 @@ class Commands
 
             case "category": {
                 if(!admin) break;
+                // split up arguments
                 String[] args = arg.replaceFirst("^(\\S+)\\s+(\\S+|\"[^\"]+\")(\\s+(\\d+)(\\s+(.*))?)?$", "$1\0$2\0$4\0$6")
                     .replaceAll("\0$|(\0)\0+", "$1").split("\0");
                 if(args.length < 2) break;
@@ -381,13 +384,60 @@ class Commands
                 addX = true;
             } break;
 
+            case "clear":
+            {
+                if (!admin) break;
+                String[] args = arg.split("\\s+");
+                BiConsumer<Message, Integer> delMsgBy = (m, i) ->
+                {
+                    switch (get(args, i, ""))
+                    {
+                        case "cmd": if (!m.getContentRaw().startsWith(prefix)) return;
+                            break;
+                        case "cmds": if (m.getContentRaw().substring(0, 1).matches(get(args, i + 1, "[/%$§!#~+-]")))
+                            return;
+                            break;
+                        case "bot": if (m.getAuthor().getIdLong() != jda.getSelfUser().getIdLong()) return;
+                            break;
+                        case "bots": if (!m.getAuthor().isBot()) return;
+                            break;
+                    }
+                    delMsg(new UniEvent(null, e.guild, e.channel, e.author, null, e.msg, null));
+                };
+
+                switch (get(args, 0, "dflt"))
+                {
+                    case "before":
+                        e.channel.getHistoryBefore(get(args, 1, ""), 100).queue(h ->
+                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
+                        break;
+                    case "after":
+                        e.channel.getHistoryAfter(get(args, 1, ""), 100).queue(h ->
+                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
+                        break;
+                    case "around":
+                        e.channel.getHistoryAround(get(args, 1, ""), 100).queue(h ->
+                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
+                        break;
+                    case "beginning":
+                        e.channel.getHistoryFromBeginning(100).queue(h ->
+                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 1)));
+                        break;
+                    default:
+                        e.channel.getHistory().getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 1));
+                        break;
+                }
+            } break;
+
             case "embed": {
                 if(!admin) break;
                 EmbedBuilder em = new EmbedBuilder();
+                // split up arguments
                 String[] args = arg.replaceAll("(^|\\n|;)(\\w+)( +((\\S+|\"[^\"]*\"| +)*))?", "$2 $3\0").split("\0");
 
                 for(String a : args)
                 {
+                    // split up argument arguments
                     String[] v = a.replaceAll("(\"[^\"]*\"|\\S+)\\s+", "$1\0").split("\0");
 
                     switch(v[0].toLowerCase())
@@ -455,6 +505,7 @@ class Commands
                 em.setAuthor(m.getEffectiveName(), null, m.getUser().getEffectiveAvatarUrl());
                 em.setTitle("Level " + u.level);
 
+                // generate ep status bar
                 int d = u.level == 0 ? 2 : 1, ep = d * (u.textEp + u.voiceEp) % g.levelEp;
                 char[] xp = new char[20];
                 for(int i = 0; i < 20; i++) xp[i] = i * g.levelEp < 20 * ep ? '█' : '▏';
