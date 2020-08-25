@@ -8,11 +8,14 @@ import net.dv8tion.jda.api.events.message.guild.react.GuildMessageReactionAddEve
 import net.dv8tion.jda.api.events.message.guild.react.GuildMessageReactionRemoveEvent;
 import net.dv8tion.jda.api.events.message.priv.PrivateMessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-
-import java.util.*;
-
-import core.UniEvent.EventType;
 import org.jetbrains.annotations.NotNull;
+import wrapper.UniEvent;
+import wrapper.UniEvent.EventType;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 
 import static core.Bot.isAdmin;
 import static core.Bot.timeFormat;
@@ -27,7 +30,7 @@ class EventHandler extends ListenerAdapter
 
         UniEvent ue = new UniEvent(event);
 
-        List<String> attach = new ArrayList<>();
+        ArrayList<String> attach = new ArrayList<>();
         ue.msg.getAttachments().forEach(a -> attach.add(a.getUrl()));
         String cd = ue.msg.getContentDisplay();
 
@@ -51,7 +54,7 @@ class EventHandler extends ListenerAdapter
 
         UniEvent ue = new UniEvent(event);
 
-        List<String> attach = new ArrayList<>();
+        ArrayList<String> attach = new ArrayList<>();
         ue.msg.getAttachments().forEach(a -> attach.add(a.getUrl()));
         String cd = ue.msg.getContentDisplay();
 

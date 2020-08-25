@@ -7,6 +7,8 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import wrapper.GuildWrapper;
+import util.Helper;
+import wrapper.UniEvent;
 import wrapper.UserWrapper;
 
 import java.util.*;
@@ -136,7 +138,7 @@ class EpDistributor
             {
                 if(v.status != Voice.TALKED)
                     Bot.Log(String.format("voice %s:%s %s", v.guild.getName(), v.user.getName(),
-                        Bot.get(Voice.statusName, v.status + 1, "invalid " + v.status)));
+                        Helper.get(Voice.statusName, v.status + 1, "invalid " + v.status)));
 
                 GuildWrapper g = Bot.getGuildData(v.guild.getId());
                 if (g == null) continue;
@@ -192,14 +194,14 @@ class EpDistributor
 
             // replace links, remove whitespace, only count alphanumerics
             msg = msg
-                .replaceAll("https?://[^\\s]+", "alinktosomewherelse")
+                .replaceAll("https?://[^\\s]+", "alinktosomewherelseinthewww")
                 .replaceAll("\\W+", "")
                 .replaceAll("(\\w)\1+", "$1"); // double chars
-            if(msg.length() == 0) return;
 
             // add ep
             int ep = (int)Math.ceil(guild.maxTextEp * Math.min(1.0, msg.length() / (float)guild.maxTextLength));
             ep += e.msg.getAttachments().size() * guild.maxTextEp / 2;
+            if(ep == 0) return;
             user.textEp += ep;
             user.lTxtTime = now;
             Log(e.guild.getId(), "Ep: " + e.author.getAsTag() + " + " + ep);
@@ -251,6 +253,7 @@ class EpDistributor
                     {
                         e.guild.addRoleToMember(e.author.getId(), r).queue();
                         Log(guild.gid, "Lv: " + e.author.getAsTag() + " is now " + r.getName());
+                        // TODO: if(ev.type == UniEvent.TEXT) e.channe.SendMessage(guild.gid, "Lv: " + e.author.getAsTag() + " is now " + r.getName()).queue();
                     }
                     else if(mroles.contains(r)) e.guild.removeRoleFromMember(e.author.getId(), r).queue();
 

@@ -1,16 +1,14 @@
 package util;
 
+import core.Bot;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Map.Entry;
-
-import core.Bot;
-import org.json.JSONObject;
 
 /** filesystem operations*/
 public class FSManager

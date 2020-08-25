@@ -2,15 +2,14 @@ package core;
 
 import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.*;
+import org.json.JSONObject;
 import util.Crypt;
 import wrapper.GuildWrapper;
-
-import org.json.JSONObject;
+import wrapper.UniEvent;
 
 import javax.annotation.Nullable;
 import javax.crypto.NoSuchPaddingException;
 import javax.security.auth.login.LoginException;
-
 import java.io.*;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -34,6 +33,24 @@ public class Bot
     public static final int version = 25;
     /** current sbf version */
     public static final int sbfVersion = 24;
+
+    /** jda reference */
+    public static JDA jda;
+    /** command prefix string */
+    public static final String prefix = dev ? "#" : "/";
+    /** Bot name */
+    public static final String name = "Stewart";
+    /** Bot description */
+    public static final String desc = "Keeps track of your activity on the server.\nCommand prefix: " + prefix;
+    /** author name */
+    public static final String author = "Symbroson";
+    /** user-id of bot host */
+    public static String ownId;
+
+    /** crypter for sbf files */
+    public static Crypt crypt;
+    /** guild cache map GUILD_ID:GuildWrapper */
+    private static final HashMap<String, GuildWrapper> guildCache = new HashMap<>();
     /** sbf version map NUM:PREFIX */
     public static final Map<Integer, String> sbfVersions = new TreeMap<>(Comparator.reverseOrder());
 
@@ -44,19 +61,6 @@ public class Bot
     /** logFile format */
     private static final SimpleDateFormat logFormat = new SimpleDateFormat("'Logs/'yyyyMMdd'.log'");
 
-    /** jda reference */
-    public static JDA jda;
-    /** command prefix string */
-    public static final String prefix = dev ? "#" : "/";
-    /** Bot name */
-    public static final String name = "Stewart";
-    /** Bot description */
-    public static final String desc = "Keeps track of your activity on the server.\nCommand prefix: " + prefix;
-    /** crypter for sbf files */
-    public static Crypt crypt;
-    /** guild cache map GUILD_ID:GuildWrapper */
-    private static final HashMap<String, GuildWrapper> guildCache = new HashMap<>();
-
     /** current logFile date */
     private static Date logDate = new Date(0);
     /** current logFile */
@@ -66,7 +70,7 @@ public class Bot
 
     public static void sendOwnerMessage(String s)
     {
-        Bot.jda.openPrivateChannelById(SECRETS.OWNID).queue(c -> c.sendMessage(s).queue());
+        Bot.jda.openPrivateChannelById(ownId).queue(c -> c.sendMessage(s).queue());
     }
 
     /** lambda interface for withGuildData */
@@ -149,7 +153,6 @@ public class Bot
                 args.add(new String(c.readPassword()));
                 System.out.print("Crypt password: ");
                 args.add(new String(c.readPassword()));
-                args.forEach(s -> System.out.println("--" + s + "--"));
             }
             else try
             {
@@ -186,13 +189,13 @@ public class Bot
             crypt = new Crypt(args.get(2));
 
             Log("initialize bot");
-            SECRETS.OWNID = args.get(1);
+            ownId = args.get(1);
 
             // jda = JDABuilder.createDefault(core.SECRETS.TOKEN).build();
             jda = new JDABuilder(AccountType.BOT).setToken(args.get(0)).build();
 
             // try if UID is valid
-            jda.openPrivateChannelById(SECRETS.OWNID).onErrorMap(e ->
+            jda.openPrivateChannelById(ownId).onErrorMap(e ->
             {
                 e.printStackTrace();
                 System.exit(2);
@@ -205,8 +208,8 @@ public class Bot
         }
         catch (LoginException e) {
             Log("Invalid bot token.");
-            printHelp();
             e.printStackTrace();
+            System.exit(2);
         }
 
         // configure bot
@@ -399,8 +402,8 @@ public class Bot
      */
     static boolean isAdmin(UniEvent e)
     {
-        return e.author.getId().equals(SECRETS.OWNID) || (e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() ||
-               e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(getGuildData(e.guild.getId()).adminRole))));
+        return e.author.getId().equals(ownId) || (e.guild != null && (e.author.getIdLong() == e.guild.getOwnerIdLong() ||
+                                                                      e.guild.getMember(e.author).getRoles().contains(e.guild.getRoleById(getGuildData(e.guild.getId()).adminRole))));
     }
 
     /**
@@ -519,36 +522,5 @@ public class Bot
     {
         e.msg.delete().onErrorMap(ex -> null).queue();
         withGuildData(e.guild.getId(), true, g -> g.polls.remove(e.msg.getIdLong()));
-    }
-
-
-    /* general helper functions */
-    /** get item from array with range checks */
-    public static Object get(Object[] arr, int index, Object dflt)
-    {
-        if(arr.length <= index) return dflt;
-        return arr[index];
-    }
-    /** get item from array with range checks */
-    public static String get(String[] arr, int index, String dflt)
-    {
-        if(arr.length <= index) return dflt;
-        return arr[index];
-    }
-    /** get item from array with range checks */
-    public static String get(String[] arr, int index)
-    {
-        if(arr.length <= index) return null;
-        return arr[index];
-    }
-
-    /**
-     * Checks if the url is valid or returns null otherwise
-     * @param url
-     * @return url or null
-     */
-    @Nullable public static String getUrl(String url)
-    {
-        return url != null && EmbedBuilder.URL_PATTERN.matcher(url).matches() ? url : null;
     }
 }

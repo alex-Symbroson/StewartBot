@@ -1,9 +1,14 @@
 package core;
 
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.*;
+import org.json.JSONObject;
 import util.FSManager;
 import wrapper.GuildWrapper;
+import util.Helper;
+import wrapper.UniEvent;
 import wrapper.UserWrapper;
 
 import java.awt.*;
@@ -13,14 +18,11 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Random;
 import java.util.function.BiConsumer;
-
-import com.jayway.jsonpath.DocumentContext;
-import com.jayway.jsonpath.JsonPath;
-
-import org.json.JSONObject;
 
 import static core.Bot.*;
 
@@ -44,11 +46,11 @@ class Commands
                 info.setTitle(Bot.name + " Bot");
                 info.setDescription(Bot.desc);
                 info.setColor(0xf45642);
-                info.setAuthor(SECRETS.AUTHOR);
+                info.setAuthor(author);
 
                 if (e.channel != null && e.channel.getType() == ChannelType.TEXT)
-                    info.setFooter("Hosted by " + Bot.jda.getUserById(SECRETS.OWNID).getName() +
-                                   "\nCreated by " + SECRETS.AUTHOR, Bot.jda.getUserById(SECRETS.OWNID).getAvatarUrl());
+                    info.setFooter("Hosted by " + Bot.jda.getUserById(ownId).getName() +
+                                   "\nCreated by " + author, Bot.jda.getUserById(ownId).getAvatarUrl());
 
                 e.channel.sendMessage(info.build()).queue(Bot.addX);
                 info.clear();
@@ -95,7 +97,7 @@ class Commands
             } break;
 
             case "checkvoice":
-                if (!e.author.getId().equals(SECRETS.OWNID)) break;
+                if (!e.author.getId().equals(ownId)) break;
                 EpDistributor.voiceCheckTimerTask.run();
                 break;
 
@@ -115,7 +117,7 @@ class Commands
             case "put":
             case "add":
             case "del": {
-                if (!e.author.getId().equals(SECRETS.OWNID)) break;
+                if (!e.author.getId().equals(ownId)) break;
                 String gid;
 
                 if(e.guild != null) gid = e.guild.getId();
@@ -314,8 +316,8 @@ class Commands
                     e.guild.createCategory(args[1]).queue(c ->
                     {
                         c.createTextChannel(args[0].toLowerCase().replace(" ", "-")).queue();
-                        int n = Integer.parseInt(Bot.get(args, 2, "1"));
-                        String name = Bot.get(args, 3, args[0].replaceAll("\\W", ""));
+                        int n = Integer.parseInt(Helper.get(args, 2, "1"));
+                        String name = Helper.get(args, 3, args[0].replaceAll("\\W", ""));
                         for(int i = 1; i <= n; i++) c.createVoiceChannel(name + "-" + i).queue();
                     });
                 }
@@ -390,11 +392,11 @@ class Commands
                 String[] args = arg.split("\\s+");
                 BiConsumer<Message, Integer> delMsgBy = (m, i) ->
                 {
-                    switch (get(args, i, ""))
+                    switch (Helper.get(args, i, ""))
                     {
                         case "cmd": if (!m.getContentRaw().startsWith(prefix)) return;
                             break;
-                        case "cmds": if (m.getContentRaw().substring(0, 1).matches(get(args, i + 1, "[/%$§!#~+-]")))
+                        case "cmds": if (m.getContentRaw().substring(0, 1).matches(Helper.get(args, i + 1, "[/%$§!#~+-]")))
                             return;
                             break;
                         case "bot": if (m.getAuthor().getIdLong() != jda.getSelfUser().getIdLong()) return;
@@ -405,18 +407,18 @@ class Commands
                     delMsg(new UniEvent(null, e.guild, e.channel, e.author, null, e.msg, null));
                 };
 
-                switch (get(args, 0, "dflt"))
+                switch (Helper.get(args, 0, "dflt"))
                 {
                     case "before":
-                        e.channel.getHistoryBefore(get(args, 1, ""), 100).queue(h ->
+                        e.channel.getHistoryBefore(Helper.get(args, 1, ""), 100).queue(h ->
                             h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
                         break;
                     case "after":
-                        e.channel.getHistoryAfter(get(args, 1, ""), 100).queue(h ->
+                        e.channel.getHistoryAfter(Helper.get(args, 1, ""), 100).queue(h ->
                             h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
                         break;
                     case "around":
-                        e.channel.getHistoryAround(get(args, 1, ""), 100).queue(h ->
+                        e.channel.getHistoryAround(Helper.get(args, 1, ""), 100).queue(h ->
                             h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
                         break;
                     case "beginning":
@@ -446,7 +448,7 @@ class Commands
                             em.addBlankField(v.length > 1 && v[1].matches("t|true|1"));
                             break;
                         case "f": case "fi": case "field":
-                            em.addField(get(v, 1), get(v, 2), v.length > 3 && v[3].matches("t|true|1"));
+                            em.addField(Helper.get(v, 1), Helper.get(v, 2), v.length > 3 && v[3].matches("t|true|1"));
                             break;
                         case "color": case "c":
                             try { em.setColor((Color)Color.class.getDeclaredField(v[1].toLowerCase()).get(null)); }
@@ -454,24 +456,24 @@ class Commands
                             break;
                         case "a": case "author":
                         {
-                            Member m = tryGetMember(e, get(v, 1, ""));
-                            if (m == null) em.setAuthor(get(v, 1), get(v, 2), get(v, 3));
-                            else em.setAuthor(m.getEffectiveName(), getUrl(get(v, 2)), m.getUser().getEffectiveAvatarUrl());
+                            Member m = tryGetMember(e, Helper.get(v, 1, ""));
+                            if (m == null) em.setAuthor(Helper.get(v, 1), Helper.get(v, 2), Helper.get(v, 3));
+                            else em.setAuthor(m.getEffectiveName(), Helper.getUrl(Helper.get(v, 2)), m.getUser().getEffectiveAvatarUrl());
                         } break;
                         case "t": case "title":
-                            em.setTitle(get(v, 1), getUrl(get(v, 2)));
+                            em.setTitle(Helper.get(v, 1), Helper.getUrl(Helper.get(v, 2)));
                             break;
                         case "d": case "desc": case "description":
-                            em.setDescription(get(v, 1));
+                            em.setDescription(Helper.get(v, 1));
                             break;
                         case "fo": case "footer":
-                            em.setFooter(get(v, 1), getUrl(get(v,2)));
+                            em.setFooter(Helper.get(v, 1), Helper.getUrl(Helper.get(v,2)));
                             break;
                         case "i": case "img": case "image":
-                            em.setImage(getUrl(get(v, 1)));
+                            em.setImage(Helper.getUrl(Helper.get(v, 1)));
                             break;
                         case "th": case "thumbnail":
-                            em.setThumbnail(getUrl(get(v, 1)));
+                            em.setThumbnail(Helper.getUrl(Helper.get(v, 1)));
                             break;
                         case "tm": case "ts": case "timestamp":
                             em.setTimestamp(OffsetDateTime.now());

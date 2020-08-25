@@ -12,8 +12,8 @@ public class GuildWrapper
 {
     public int maxTextEp, maxTextLength, textTimeout, voiceEppm, warnStatic, levelEp;
     public Map<Integer, String> roles = new HashMap<>();
-    public List<Long> afkChannel = new ArrayList<>();
-    public List<Long> polls = new ArrayList<>();
+    public ArrayList<Long> afkChannel = new ArrayList<>();
+    public ArrayList<Long> polls = new ArrayList<>();
     public long adminRole;
 
     public JSONObject guild;
