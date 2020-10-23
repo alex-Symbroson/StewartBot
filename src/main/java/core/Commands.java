@@ -18,10 +18,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
 import java.util.function.BiConsumer;
 
 import static core.Bot.*;
@@ -90,6 +88,7 @@ class Commands
                     rd.close();
                 }
                 catch (IOException ex) {
+                    Log(ex.getMessage());
                     ex.printStackTrace();
                 }
 
@@ -102,7 +101,7 @@ class Commands
                 break;
 
             case "checklevel":
-                Member m = arg.isEmpty() ? null : e.guild.getMember(e.author);
+                Member m = arg.isEmpty() ? null : tryGetMember(e, arg);
                 withGuildData(e.guild.getId(), true, g ->
                     EpDistributor.updateLevel(
                         new UniEvent(e.guild, e.channel, m == null ? e.author : m.getUser()),
@@ -235,8 +234,13 @@ class Commands
                 addR = res.contains("Created role '");
 
                 Bot.withGuildData(guildId, true, g -> {
-                    if(args[0].matches("^(add|\\+)$")) g.roles.put(Integer.parseInt(args[1]), r.getName());
-                    else if(args[0].matches("^(remove|rm|delete|del|-)$")) g.roles.remove(Integer.parseInt(args[1]));
+                    if(args[0].matches("add|\\+")) {
+                        if(r.getName().matches(".*[^\\w -].*"))
+                            g.roles.put(Integer.parseInt(args[1]), r.getId());
+                        else
+                            g.roles.put(Integer.parseInt(args[1]), r.getName());
+                    }
+                    else if(args[0].matches("remove|rm|delete|del|-")) g.roles.remove(Integer.parseInt(args[1]));
                 });
             } break;
 
@@ -390,6 +394,8 @@ class Commands
             {
                 if (!admin) break;
                 String[] args = arg.split("\\s+");
+                final LinkedList<Message> msgs = new LinkedList<>();
+
                 BiConsumer<Message, Integer> delMsgBy = (m, i) ->
                 {
                     switch (Helper.get(args, i, ""))
@@ -404,29 +410,42 @@ class Commands
                         case "bots": if (!m.getAuthor().isBot()) return;
                             break;
                     }
-                    delMsg(new UniEvent(null, e.guild, e.channel, e.author, null, e.msg, null));
+                    if(m.getTimeCreated().isBefore(OffsetDateTime.now().minusWeeks(2))) return;
+                    msgs.add(m);
                 };
 
                 switch (Helper.get(args, 0, "dflt"))
                 {
                     case "before":
-                        e.channel.getHistoryBefore(Helper.get(args, 1, ""), 100).queue(h ->
-                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
+                        e.channel.getHistoryBefore(Helper.get(args, 1, ""), 100).queue(h -> {
+                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2));
+                            ((TextChannel)e.channel).deleteMessages(msgs).queue();
+                        });
                         break;
                     case "after":
-                        e.channel.getHistoryAfter(Helper.get(args, 1, ""), 100).queue(h ->
-                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
+                        e.channel.getHistoryAfter(Helper.get(args, 1, ""), 100).queue(h -> {
+                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2));
+                            ((TextChannel)e.channel).deleteMessages(msgs).queue();
+                        });
                         break;
                     case "around":
-                        e.channel.getHistoryAround(Helper.get(args, 1, ""), 100).queue(h ->
-                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2)));
+                        e.channel.getHistoryAround(Helper.get(args, 1, ""), 100).queue(h -> {
+                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 2));
+                            ((TextChannel)e.channel).deleteMessages(msgs).queue();
+                        });
                         break;
                     case "beginning":
                         e.channel.getHistoryFromBeginning(100).queue(h ->
-                            h.getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 1)));
+                            h.getRetrievedHistory().forEach(m -> {
+                                delMsgBy.accept(m, 1);
+                                ((TextChannel)e.channel).deleteMessages(msgs).queue();
+                            }));
                         break;
                     default:
-                        e.channel.getHistory().getRetrievedHistory().forEach(m -> delMsgBy.accept(m, 1));
+                        e.channel.getHistory().retrievePast(100).queue(h -> {
+                            h.forEach(m -> delMsgBy.accept(m, 1));
+                            ((TextChannel)e.channel).deleteMessages(msgs).queue();
+                        });
                         break;
                 }
             } break;
@@ -509,11 +528,12 @@ class Commands
 
                 // generate ep status bar
                 int d = u.level == 0 ? 2 : 1, ep = d * (u.textEp + u.voiceEp) % g.levelEp;
+                int sum = u.textEp + u.voiceEp;
                 char[] xp = new char[20];
                 for(int i = 0; i < 20; i++) xp[i] = i * g.levelEp < 20 * ep ? '█' : '▏';
                 xp[20 * ep / g.levelEp] = "▏▎▍▌▋▊▉█".charAt(8 * ep / g.levelEp);
                 em.addField(String.format("Xp:  %d / %d            _(%d:%d)_", ep / d, g.levelEp / d,
-                    100 * u.textEp / (u.textEp + u.voiceEp), 100 - 100 * u.textEp / (u.textEp + u.voiceEp)),
+                    sum == 0 ? 0 : 100 * u.textEp / sum, sum == 0 ? 0 : 100 - 100 * u.textEp / sum),
                     "```┏━━━━━━━━━━━━━━━━━━━━┓\n" +
                     "▕" + new String(xp) + "▏\n" +
                     "┗━━━━━━━━━━━━━━━━━━━━┛```",

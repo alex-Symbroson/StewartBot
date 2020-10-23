@@ -16,10 +16,7 @@ public class Crypt
 {
     /** {@link javax.crypto.Cipher} */
     private String padding;
-    /** {@link java.security.MessageDigest} */
-    private String algorithm;
-    /** {@link javax.crypto.spec.SecretKeySpec} */
-    private String keySpecAlgorithm;
+    /** crypt key */
     private final SecretKeySpec digest;
 
     /**
@@ -103,18 +100,6 @@ public class Crypt
     public String getPadding()
     {
         return padding;
-    }
-
-    /** @return algorithm */
-    public String getAlgorithm()
-    {
-        return algorithm;
-    }
-
-    /** @return keySpecAlgorithm */
-    public String getKeySpecAlgorithm()
-    {
-        return keySpecAlgorithm;
     }
 
     /**

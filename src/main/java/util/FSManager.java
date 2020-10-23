@@ -25,7 +25,7 @@ public class FSManager
 			return new String(Files.readAllBytes(getFile(path).toPath()));
 		}
 		catch (IOException e) {
-	        Bot.Log(path + " could not be read");
+	        Bot.Log(path + " could not be read: " + e.getMessage());
 			e.printStackTrace();
 		}
 		return null;
@@ -45,7 +45,7 @@ public class FSManager
 			fos.close();
 		}
 		catch(Exception e) {
-	        Bot.Log(path + " could not be saved");
+	        Bot.Log(path + " could not be saved: " + e.getMessage());
 	        e.printStackTrace();
 		}
 	}
@@ -62,7 +62,7 @@ public class FSManager
 	        return new JSONObject(new String(Files.readAllBytes(jsonFile.toPath())));
 	    }
 	    catch (Exception e) {
-	        Bot.Log(jsonFile.getPath() + " could not be loaded");
+	        Bot.Log(jsonFile.getPath() + " could not be loaded: " + e.getMessage());
 	        e.printStackTrace();
 	    }
 		return null;
@@ -98,7 +98,7 @@ public class FSManager
 	    	o.put("version", version);
 	    }
 	    catch (Exception e) {
-	        Bot.Log(sbfFile.getPath() + " could not be loaded");
+	        Bot.Log(sbfFile.getPath() + " could not be loaded: " + e.getMessage());
 	        e.printStackTrace();
 	    }
 
@@ -121,7 +121,7 @@ public class FSManager
 	        fos.close();
 	    }
 	    catch (Exception e) {
-	        Bot.Log(sbfFile.getPath() + " could not be saved");
+	        Bot.Log(sbfFile.getPath() + " could not be saved: " + e.getMessage());
 	        e.printStackTrace();
 	    }
 	}
