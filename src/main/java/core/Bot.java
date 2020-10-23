@@ -2,6 +2,7 @@ package core;
 
 import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import org.json.JSONObject;
 import util.Crypt;
 import wrapper.GuildWrapper;
@@ -30,7 +31,7 @@ public class Bot
     public static final boolean dev = false;
 
     /** bot version */
-    public static final int version = 25;
+    public static final int version = 265;
     /** current sbf version */
     public static final int sbfVersion = 24;
 
@@ -104,6 +105,7 @@ public class Bot
      */
     public static void main(String[] rawArgs)
     {
+        rawArgs = new String[]{"Njk3NDI0NTU3OTUwMTA3Njc4.Xo3H4Q.F4H7-mPKyyUjWhwZG_YAG1nzK-s", "253544853240152065", "NXFmYs"};
         // parse console arguments
         ArrayList<String> args = new ArrayList<>(Arrays.asList(rawArgs));
 
@@ -211,9 +213,14 @@ public class Bot
             e.printStackTrace();
             System.exit(2);
         }
+        catch (ErrorResponseException e) {
+            Log("No Internet Connection.");
+            System.exit(2);
+        }
 
         // configure bot
-        jda.getPresence().setActivity(Activity.playing(prefix + "help || version " + (""+version).replaceAll("(?!^|$)", ".")));
+        jda.getPresence().setActivity(Activity.playing(
+            prefix + "help || version " + ("" + version).replaceAll("(?!^|$)", ".") + (dev ? "dev" : "")));
         if(icon != null) jda.getSelfUser().getManager().setAvatar(icon).queue();
         jda.getPresence().setStatus(OnlineStatus.ONLINE);
         jda.setAutoReconnect(true);
@@ -264,10 +271,10 @@ public class Bot
         try
         {
             checkLogDate();
-            System.out.println(log);
-            logFile.write((log + "\n").getBytes());
+            if(dev) System.out.println(log);
+            logFile.write((timeFormat.format(new Date()) + " " + log + "\n").getBytes());
         }
-        catch (IOException e) { e.printStackTrace(); }
+        catch (IOException e) { Log(e.getMessage()); e.printStackTrace(); }
     }
 
     /**
@@ -280,11 +287,13 @@ public class Bot
         if(Bot.dev) System.out.println(log);
         else try
         {
-            FileOutputStream fos = new FileOutputStream(getLogFile(folder), true);
-            fos.write((log + "\n").getBytes());
-            fos.close();
+            checkLogDate();
+            Guild g = jda.getGuildById(folder);
+            if(g != null) folder = g.getName();
+            if(dev) System.out.println(folder + ":" + log);
+            logFile.write((timeFormat.format(new Date()) + " " + folder + ":" + log + "\n").getBytes());
         }
-        catch (IOException e) { e.printStackTrace(); }
+        catch (IOException e) { Log(e.getMessage()); e.printStackTrace(); }
     }
 
 
@@ -347,6 +356,7 @@ public class Bot
             return null;
         }
         guildCache.put(guildId, new GuildWrapper(guild, guildId));
+
         return guildCache.get(guildId);
     }
 
@@ -423,9 +433,10 @@ public class Bot
         Role r = null;
         tRes = null;
 
+        if(name.matches("\\d+")) return e.guild.getRoleById(name);
         // @ referenced
-        if(name.matches("<@&\\d+>")) r = e.guild.getRoleById(name.substring(3, name.length() - 1));
-            // name referenced
+        else if(name.matches("<@&\\d+>")) return e.guild.getRoleById(name.substring(3, name.length() - 1));
+        // name referenced
         else if(name.matches("^@?[\\w -]+$"))
         {
             List<Role> roles = e.guild.getRolesByName(name.replace("@", ""), true);

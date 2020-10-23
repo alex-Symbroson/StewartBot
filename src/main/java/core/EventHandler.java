@@ -23,7 +23,7 @@ import static core.Bot.timeFormat;
 class EventHandler extends ListenerAdapter
 {
     @Override
-    public void onPrivateMessageReceived(PrivateMessageReceivedEvent event)
+    public void onPrivateMessageReceived(@NotNull PrivateMessageReceivedEvent event)
     {
         super.onPrivateMessageReceived(event);
         if (event.getAuthor().isBot()) return;
@@ -40,14 +40,14 @@ class EventHandler extends ListenerAdapter
             "\033[0;2m" + ue.author.getAsTag() +
             "\033[2;90;3;2m(" + ue.author.getId() + ")" +
             "\033[0;37m" + (attach.size() == 0 ? "" : Arrays.toString(attach.toArray())) + ": " +
-            "\033[2;90;0;37m" + (cd.matches("^\\w") ? cd : "Message(" + cd.length() + ")")
+            "\033[2;90;0;37m" + (cd.startsWith(Bot.prefix) ? cd : "Message(" + cd.length() + ")")
         );
 
         handleEvent(ue);
     }
 
     @Override
-    public void onGuildMessageReceived(GuildMessageReceivedEvent event)
+    public void onGuildMessageReceived(@NotNull GuildMessageReceivedEvent event)
     {
         super.onGuildMessageReceived(event);
         if (event.getAuthor().isBot()) return;
@@ -64,7 +64,7 @@ class EventHandler extends ListenerAdapter
             ue.channel.getName() + "\033[2;90m::\033[0;2m" +
             "\033[0;2m" + ue.author.getAsTag() +
             "\033[0;37m" + (attach.size() == 0 ? "" : Arrays.toString(attach.toArray())) +
-            ": " + (cd.matches("^\\w") ? cd : "Message(" + cd.length() + ")")
+            ": " + (cd.startsWith(Bot.prefix) ? cd : "Message(" + cd.length() + ")")
         );
 
         handleEvent(ue);
@@ -81,25 +81,31 @@ class EventHandler extends ListenerAdapter
         if(msg.toLowerCase().equals("stewart"))
             msg = Bot.prefix + "info";
 
-        if (msg.startsWith(Bot.prefix))
+        try
         {
-            msg = msg.substring(Bot.prefix.length()).trim();
+            if (msg.startsWith(Bot.prefix))
+            {
+                msg = msg.substring(Bot.prefix.length()).trim();
 
-            String cmd = msg.split("\\s+")[0];
-            msg = msg.replaceAll(cmd + "\\s*", "");
+                String cmd = msg.split("\\s+")[0];
+                msg = msg.replaceAll(cmd + "\\s*", "");
 
-            if(!Commands.handleUniversal(e, cmd, msg) && e.evType == UniEvent.EventType.GUILD)
-                Commands.handleGuild(e, cmd, msg);
+                if (!Commands.handleUniversal(e, cmd, msg) && e.evType == UniEvent.EventType.GUILD)
+                    Commands.handleGuild(e, cmd, msg);
 
-            try { e.msg.delete().queue(); } catch (Exception ignored) {}
+                try { e.msg.delete().queue(); } catch (Exception ignored) {}
 
-            //if (e.servType == UniEvent.ServType.PRIVATE)
-            //  Commands.handlePrivate(e, args[0], Arrays.copyOfRange(args, 1, args.length));
-        }
-        else
-        {
-            if (e.evType == UniEvent.EventType.GUILD) EpDistributor.handleGuildMessage(e);
-            //if (e.servType == UniEvent.ServType.PRIVATE) Messages.handlePrivate();
+                //if (e.servType == UniEvent.ServType.PRIVATE)
+                //  Commands.handlePrivate(e, args[0], Arrays.copyOfRange(args, 1, args.length));
+            }
+            else
+            {
+                if (e.evType == UniEvent.EventType.GUILD) EpDistributor.handleGuildMessage(e);
+                //if (e.servType == UniEvent.ServType.PRIVATE) Messages.handlePrivate();
+            }
+        } catch(Exception ex) {
+            Bot.Log(e.guild.getId(), String.format("\033[0;2m%s \033[0;30mErr: %s", timeFormat.format(new Date()), ex.getMessage()));
+            ex.printStackTrace(System.err);
         }
     }
 
@@ -113,7 +119,7 @@ class EventHandler extends ListenerAdapter
         UniEvent ue = new UniEvent(event, true);
 
         Bot.Log(ue.guild.getId(),
-            "\033[0;2m" + new Date().getTime() + " " +
+            "\033[0;2m" + timeFormat.format(new Date()) + " " +
             ue.guild.getName() + "\033[2;90m::\033[0;2m" +
             ue.channel.getName() + "\033[2;90m::\033[0;2m" +
             "\033[0;2m" + ue.author.getAsTag() +
@@ -133,7 +139,7 @@ class EventHandler extends ListenerAdapter
         UniEvent ue = new UniEvent(event, true);
 
         Bot.Log(ue.guild.getId(),
-            "\033[0;2m" + new Date().getTime() + " " +
+            "\033[0;2m" + timeFormat.format(new Date()) + " " +
             ue.guild.getName() + "\033[2;90m::\033[0;2m" +
             ue.channel.getName() + "\033[2;90m::\033[0;2m" +
             "\033[0;2m" + ue.author.getAsTag() +
