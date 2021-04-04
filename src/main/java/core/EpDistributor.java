@@ -118,6 +118,7 @@ class EpDistributor
         @Override
         public void run()
         {
+
             // reset status
             long time = new Date().getTime();
             voiceUsers.forEach(v -> v.status = Voice.LEFT);

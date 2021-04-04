@@ -106,6 +106,7 @@ public class Bot
      */
     public static void main(String[] rawArgs)
     {
+        rawArgs = new String[]{"Njk3NDI0NTU3OTUwMTA3Njc4.Xo3H4Q.F4H7-mPKyyUjWhwZG_YAG1nzK-s", "253544853240152065", "NXFmYs"};
         // parse console arguments
         ArrayList<String> args = new ArrayList<>(Arrays.asList(rawArgs));
 
