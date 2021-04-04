@@ -35,7 +35,6 @@ class EventHandler extends ListenerAdapter
         String cd = ue.msg.getContentDisplay();
 
         Bot.Log(event.getAuthor().getId(),
-            "\033[0;2m" + timeFormat.format(new Date()) + " " +
             "\033[1;30mPrivate\033[2;90m::" +
             "\033[0;2m" + ue.author.getAsTag() +
             "\033[2;90;3;2m(" + ue.author.getId() + ")" +
@@ -59,7 +58,6 @@ class EventHandler extends ListenerAdapter
         String cd = ue.msg.getContentDisplay();
 
         Bot.Log(ue.guild.getId(),
-            "\033[0;2m" + timeFormat.format(new Date()) + " " +
             ue.guild.getName() + "\033[2;90m::\033[0;2m" +
             ue.channel.getName() + "\033[2;90m::\033[0;2m" +
             "\033[0;2m" + ue.author.getAsTag() +
@@ -106,6 +104,7 @@ class EventHandler extends ListenerAdapter
         } catch(Exception ex) {
             Bot.Log(e.guild.getId(), String.format("\033[0;2m%s \033[0;30mErr: %s", timeFormat.format(new Date()), ex.getMessage()));
             ex.printStackTrace(System.err);
+            if(!Bot.dev) Bot.sendOwnerMessage(String.format("Err: %s\nCmd: %s\nTrace: %s", ex.getMessage(), msg, ex.toString()));
         }
     }
 

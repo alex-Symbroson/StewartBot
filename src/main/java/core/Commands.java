@@ -209,7 +209,6 @@ class Commands
         {
             case "setadminrole": {
                 if(!admin) break;
-
                 Role r = tryGetRole(e, arg);
                 if(tRes != null) res = tRes;
                 if(r == null) break;
@@ -223,25 +222,41 @@ class Commands
             case "levelrole": {
                 if(!admin) break;
                 // split up arguments
-                String[] args = arg.replaceFirst("^(\\S+)\\s+(\\d+)\\s+", "$1\0$2\0").split("\0");
-                if(args.length != 3) break;
-                // (add|+|remove|rm|delete|del|-)
-                Role r = tryGetRole(e, args[2]);
-                if(tRes != null) res = tRes;
-                if(r == null) break;
+                String[] args = arg.replaceFirst("^(\\S+)\\s+(\\d+)\\s*", "$1\0$2\0").split("\0");
 
-                addX = true;
-                addR = res.contains("Created role '");
-
-                Bot.withGuildData(guildId, true, g -> {
-                    if(args[0].matches("add|\\+")) {
-                        if(r.getName().matches(".*[^\\w -].*"))
-                            g.roles.put(Integer.parseInt(args[1]), r.getId());
-                        else
-                            g.roles.put(Integer.parseInt(args[1]), r.getName());
+                if(args[0].matches("get"))
+                {
+                    res = "Level Roles:\n";
+                    GuildWrapper g = Bot.getGuildData(guildId);
+                    Object[] data = g.roles.keySet().toArray();
+                    Arrays.sort(data);
+                    for(Object en : data)
+                    {
+                        Role r = Bot.tryGetRole(e, g.roles.get(en));
+                        res += en + ": " + (r != null ? r.getAsMention() : "unknown role") + "\n";
                     }
-                    else if(args[0].matches("remove|rm|delete|del|-")) g.roles.remove(Integer.parseInt(args[1]));
-                });
+                }
+                else if (args[0].matches("add|\\+|remove|rm|delete|del|-"))
+                {
+                    Bot.withGuildData(guildId, true, g ->
+                    {
+                        if (args[0].matches("add|\\+"))
+                        {
+                            Role r = args.length == 3 ? tryGetRole(e, args[2]) : null;
+
+                            if (r == null) return;
+                            if (r.getName().matches(".*[^\\w -].*"))
+                                g.roles.put(Integer.parseInt(args[1]), r.getId());
+                            else
+                                g.roles.put(Integer.parseInt(args[1]), r.getName());
+                        }
+                        else if (args[0].matches("remove|rm|delete|del|-"))
+                            g.roles.remove(Integer.parseInt(args[1]));
+                    });
+                }
+
+                if(tRes != null) addR = (res = tRes).contains("Created role '");
+                addX = true;
             } break;
 
             case "warn": {
@@ -402,8 +417,9 @@ class Commands
                     {
                         case "cmd": if (!m.getContentRaw().startsWith(prefix)) return;
                             break;
-                        case "cmds": if (m.getContentRaw().substring(0, 1).matches(Helper.get(args, i + 1, "[/%$§!#~+-]")))
-                            return;
+                        case "cmds":
+                            if (m.getContentRaw().substring(0, 1).matches(Helper.get(args, i + 1, "[/%$§!#~+-]")))
+                                return;
                             break;
                         case "bot": if (m.getAuthor().getIdLong() != jda.getSelfUser().getIdLong()) return;
                             break;
@@ -454,54 +470,70 @@ class Commands
                 if(!admin) break;
                 EmbedBuilder em = new EmbedBuilder();
                 // split up arguments
-                String[] args = arg.replaceAll("(^|\\n|;)(\\w+)( +((\\S+|\"[^\"]*\"| +)*))?", "$2 $3\0").split("\0");
+                String[] args = arg.replaceAll("\\s*\\n\\s*", "\0").split("\0");
 
                 for(String a : args)
                 {
-                    // split up argument arguments
-                    String[] v = a.replaceAll("(\"[^\"]*\"|\\S+)\\s+", "$1\0").split("\0");
+                    // split up arguments
+                    String[] v = a.replaceAll("\"([^\"]*)\"|(\\S+)\\s+", "$1$2\0").split("\0");
+                    boolean inl = false;
+                    String url = null, value = null;
 
                     switch(v[0].toLowerCase())
                     {
-                        case "bf": case "blank": case "blankField":
-                            em.addBlankField(v.length > 1 && v[1].matches("t|true|1"));
-                            break;
-                        case "f": case "fi": case "field":
-                            em.addField(Helper.get(v, 1), Helper.get(v, 2), v.length > 3 && v[3].matches("t|true|1"));
-                            break;
-                        case "color": case "c":
+                        case "bf": case "blank": case "blankfield": {
+                            em.addBlankField(false);
+                        } break;
+                        case "ib": case "ibf": case "inlineblank": case "inlineblankfield": {
+                            em.addBlankField(true);
+                        } break;
+                        case "f": case "fi": case "sf": case "field": case "singlefield": {
+                            if (v.length > 1) value = String.join(" ", Arrays.copyOfRange(v, 2, v.length));
+                            em.addField(Helper.get(v, 1), value, false);
+                        } break;
+                        case "if": case "inlinefield": {
+                            if (v.length > 1) value = String.join(" ", Arrays.copyOfRange(v, 2, v.length));
+                            em.addField(Helper.get(v, 1), value, true);
+                        } break;
+                        case "color": case "c": {
                             try { em.setColor((Color)Color.class.getDeclaredField(v[1].toLowerCase()).get(null)); }
                             catch (Exception ex) { em.setColor(Integer.parseInt(arg)); }
-                            break;
-                        case "a": case "author":
-                        {
+                        } break;
+                        case "a": case "author": {
                             Member m = tryGetMember(e, Helper.get(v, 1, ""));
                             if (m == null) em.setAuthor(Helper.get(v, 1), Helper.get(v, 2), Helper.get(v, 3));
                             else em.setAuthor(m.getEffectiveName(), Helper.getUrl(Helper.get(v, 2)), m.getUser().getEffectiveAvatarUrl());
                         } break;
-                        case "t": case "title":
-                            em.setTitle(Helper.get(v, 1), Helper.getUrl(Helper.get(v, 2)));
-                            break;
-                        case "d": case "desc": case "description":
-                            em.setDescription(Helper.get(v, 1));
-                            break;
-                        case "fo": case "footer":
-                            em.setFooter(Helper.get(v, 1), Helper.getUrl(Helper.get(v,2)));
-                            break;
-                        case "i": case "img": case "image":
+                        case "t": case "title": {
+                            url = Helper.getUrl(Helper.get(v, v.length - 1));
+                            value = String.join(" ", Arrays.copyOfRange(v, 1, v.length - (url != null ? 1 : 0)));
+                            em.setTitle(value, url);
+                        } break;
+                        case "d": case "desc": case "description": {
+                            value = String.join(" ", Arrays.copyOfRange(v, 1, v.length));
+                            em.appendDescription(value + "\n");
+                            } break;
+                        case "fo": case "footer": {
+                            url = Helper.getUrl(Helper.get(v, v.length - 1));
+                            value = String.join(" ", Arrays.copyOfRange(v, 1, v.length - (url != null ? 1 : 0)));
+                            em.setFooter(value, url);
+                        } break;
+                        case "i": case "img": case "image": {
                             em.setImage(Helper.getUrl(Helper.get(v, 1)));
-                            break;
-                        case "th": case "thumbnail":
+                        } break;
+                        case "th": case "thumbnail": {
                             em.setThumbnail(Helper.getUrl(Helper.get(v, 1)));
-                            break;
-                        case "tm": case "ts": case "timestamp":
+                        } break;
+                        case "tm": case "ts": case "timestamp": {
                             em.setTimestamp(OffsetDateTime.now());
-                            break;
+                            } break;
                     }
                 }
 
-                e.channel.sendMessage(em.build()).queue(Bot.addX);
-                em.clear();
+                if(!em.isEmpty()) {
+                    e.channel.sendMessage(em.build()).queue(Bot.addX);
+                    em.clear();
+                }
             } break;
 
             case "status": {
@@ -542,6 +574,33 @@ class Commands
                 e.channel.sendMessage(em.build()).queue(Bot.addX);
                 em.clear();
             } break;
+
+            case "mafia":
+            {
+                String[] args = arg.split("\\s+");
+
+                try
+                {
+                    if (args[0].matches("\\d+"))
+                    {
+                        int n = Integer.parseInt(args[0]);
+                    }
+                    else if (args[0].matches("\\d+\\.\\d+"))
+                    {
+                        double p = Double.parseDouble(args[0]);
+                    }
+                    else
+                    {
+                        ;
+                    }
+                }
+                catch (NumberFormatException ex)
+                {
+                    ex.printStackTrace();
+                }
+
+                break;
+            }
         }
         Bot.tRes = null;
 

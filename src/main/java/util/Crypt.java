@@ -1,5 +1,6 @@
 package util;
 
+import javax.annotation.Nonnull;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -27,7 +28,7 @@ public class Crypt
      * @throws NoSuchAlgorithmException
      * @throws NoSuchPaddingException
      */
-    public Crypt(String padding, String algorithm, String keySpecAlgorithm, String key)
+    public Crypt(@Nonnull String padding, String algorithm, @Nonnull String keySpecAlgorithm, @Nonnull String key)
     throws NoSuchAlgorithmException, NoSuchPaddingException
     {
         setPadding(padding);

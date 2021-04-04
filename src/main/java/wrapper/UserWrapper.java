@@ -16,7 +16,7 @@ public class UserWrapper {
      */
     public UserWrapper(JSONObject user)
     {
-        this.user = user;
+        this.user = new JSONObject(user);
         level = user.getInt("level");
         textEp = user.getInt("textEp");
         voiceEp = user.getInt("voiceEp");

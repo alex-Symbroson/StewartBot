@@ -3,6 +3,7 @@ package core;
 import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.json.JSONObject;
 import util.Crypt;
 import wrapper.GuildWrapper;
@@ -31,7 +32,7 @@ public class Bot
     public static final boolean dev = false;
 
     /** bot version */
-    public static final int version = 265;
+    public static final int version = 268;
     /** current sbf version */
     public static final int sbfVersion = 24;
 
@@ -192,7 +193,7 @@ public class Bot
             Log("initialize bot");
             ownId = args.get(1);
 
-            // jda = JDABuilder.createDefault(core.SECRETS.TOKEN).build();
+            // jda = JDABuilder.create(args.get(0)).build();
             jda = new JDABuilder(AccountType.BOT).setToken(args.get(0)).build();
 
             // try if UID is valid
@@ -201,7 +202,7 @@ public class Bot
                 e.printStackTrace();
                 System.exit(2);
                 return null;
-            }).complete();
+            }).complete().sendMessage(Bot.prefix + Bot.name + " is online.").queue();
         }
         catch (NoSuchPaddingException | NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -218,6 +219,16 @@ public class Bot
         }
 
         // configure bot
+        EnumSet<GatewayIntent> it = jda.getGatewayIntents();
+        it.add(GatewayIntent.GUILD_EMOJIS);
+        it.add(GatewayIntent.GUILD_MEMBERS);
+        it.add(GatewayIntent.GUILD_MESSAGES);
+        it.add(GatewayIntent.GUILD_PRESENCES);
+        it.add(GatewayIntent.GUILD_VOICE_STATES);
+        it.add(GatewayIntent.GUILD_MESSAGE_REACTIONS);
+        it.add(GatewayIntent.DIRECT_MESSAGES);
+        it.add(GatewayIntent.DIRECT_MESSAGE_REACTIONS);
+
         jda.getPresence().setActivity(Activity.playing(
             prefix + "help || version " + ("" + version).replaceAll("(?!^|$)", ".") + (dev ? "dev" : "")));
         if(icon != null) jda.getSelfUser().getManager().setAvatar(icon).queue();

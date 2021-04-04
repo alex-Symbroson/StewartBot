@@ -118,7 +118,6 @@ class EpDistributor
         @Override
         public void run()
         {
-
             // reset status
             long time = new Date().getTime();
             voiceUsers.forEach(v -> v.status = Voice.LEFT);
@@ -260,7 +259,7 @@ class EpDistributor
 
             if (!Bot.checkPerm(e, Permission.NICKNAME_MANAGE))
                 newNickname = e.member.getEffectiveName().replaceFirst(" ?(Lv. \\d+)*$", " Lv. " + user.level);
-            Log(guild.gid, "level: " + e.author.getAsMention() + " reached Lv. " + user.level);
+            Log(guild.gid, "level: " + e.author.getAsTag() + " reached Lv. " + user.level);
 
             // update level role
             if (!guild.roles.containsKey(level)) continue;
